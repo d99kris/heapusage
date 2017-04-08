@@ -74,22 +74,22 @@ Linux
 
 General usage syntax:
 
-    [HU_FILE=path] [HU_NOSYMS=0|1] LD_PRELOAD="/path/to/libheapusage.so" <application>
+    HU_FILE=<path> [HU_NOSYMS=0|1] LD_PRELOAD="/path/to/libheapusage.so" <application>
 
-Example using libheapusage (without system install) with gedit:
+Example using libheapusage (without system install) with gedit logging to file heaplog.txt:
 
-    LD_PRELOAD="./src/.libs/libheapusage.so" gedit
+    HU_FILE="heaplog.txt" LD_PRELOAD="./src/.libs/libheapusage.so" gedit
 
 macOS / OS X
 ------------
 
 General usage syntax:
 
-    [HU_FILE=path] [HU_NOSYMS=0|1] DYLD_INSERT_LIBRARIES="/path/to/libheapusage.1.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 <application>
+    HU_FILE=<path> [HU_NOSYMS=0|1] DYLD_INSERT_LIBRARIES="/path/to/libheapusage.1.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 <application>
 
 Example using libheapusage (without system install) with hutest01 application:
 
-    DYLD_INSERT_LIBRARIES="./src/.libs/libheapusage.1.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 ./test/hutest01
+    HU_FILE="heaplog.txt" DYLD_INSERT_LIBRARIES="./src/.libs/libheapusage.1.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 ./test/hutest01
 
 Output
 ======
