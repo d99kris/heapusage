@@ -1,8 +1,10 @@
 Heapusage
 =========
-Heapusage is a tool which allows a user to determine the heap usage of a
-Linux application, and also to identify any heap memory allocations not free'd
-when the application terminates. 
+Heapusage is a light-weight tool for finding memory leaks in Linux and macOS applications, and
+more generally checking heap usage. By providing a small but important subset of Valgrind's memcheck
+functionality it can be a useful alternative to Valgrind for debugging memory leaks in certain
+environments (such as large applications which cannot be run at Valgrind slowdown speed, embedded
+systems on CPU architectures not supported by Valgrind).
 
 Supported Platforms
 ===================
@@ -143,5 +145,5 @@ Heapusage is distributed under the BSD 3-Clause license. See LICENSE file.
 
 Keywords
 ========
-linux, macos, os x, heap usage, memory leak.
+linux, macos, os x, heap usage, finding memory leaks, alternative to valgrind.
 

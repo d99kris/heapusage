@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
 #include <unistd.h>
 
 #include <map>
@@ -91,7 +90,7 @@ void log_init()
   /* Initial log output */
   if (hu_log_file)
   {
-    FILE *f = fopen(hu_log_file, "a");
+    FILE *f = fopen(hu_log_file, "w");
     if (f)
     {
       fprintf(f, "==%d== Heapusage - https://github.com/d99kris/heapusage\n", pid);

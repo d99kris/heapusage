@@ -7,9 +7,8 @@
 
 showusage()
 {
-  echo "heapusage is a tool which allows a user to determine the heap usage of an"
-  echo "application, and also to identify any heap memory allocations not free'd"
-  echo "when the application terminates."
+  echo "Heapusage is a light-weight tool for finding memory leaks and more"
+  echo "generally checking heap usage in applications."
   echo ""
   echo "Usage: heapusage [-n] [-o path] PROG [ARGS..]"
   echo "   or: heapusage --help"
@@ -110,7 +109,7 @@ if [ "$(uname)" == "Darwin" ]; then
       if [ "${OUTFILE}" == "" ]; then
         # Create temporary output dir and set up log file path
         TMP=$(mktemp -d)
-        TMPLOG="${TMP}/su.log"
+        TMPLOG="${TMP}/heapusage.log"
         # Run program
         HU_FILE="${TMPLOG}" HU_NOSYMS="${NOSYMS}" \
           DYLD_INSERT_LIBRARIES="${LIBPATH}" DYLD_FORCE_FLAT_NAMESPACE=1 "${@:1}"
@@ -123,8 +122,6 @@ if [ "$(uname)" == "Darwin" ]; then
         rm -rf "${TMP}" 2> /dev/null
         exit ${RV}
       else
-        # Use user specified output path
-        rm ${OUTFILE} 2> /dev/null
         # Run program
         HU_FILE="${OUTFILE}" HU_NOSYMS="${NOSYMS}" \
           DYLD_INSERT_LIBRARIES="${LIBPATH}" DYLD_FORCE_FLAT_NAMESPACE=1 "${@:1}"
@@ -161,7 +158,7 @@ elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
       if [ "${OUTFILE}" == "" ]; then
         # Create temporary output dir and set up log file path
         TMP=$(mktemp -d)
-        TMPLOG="${TMP}/su.log"
+        TMPLOG="${TMP}/heapusage.log"
         # Run program
         HU_FILE="${TMPLOG}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
         RV=${?}
@@ -173,8 +170,6 @@ elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
         rm -rf "${TMP}" 2> /dev/null
         exit ${RV}
       else
-        # Use user specified output path
-        rm ${OUTFILE} 2> /dev/null
         # Run program
         HU_FILE="${OUTFILE}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
         RV=${?}

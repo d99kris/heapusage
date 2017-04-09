@@ -9,30 +9,20 @@
  */
 
 /* ----------- Includes ------------------------------------------ */
-#include <stdio.h>
 #include <stdlib.h>
-
-
-/* ----------- Defines ------------------------------------------- */
-
-
-/* ----------- Local Function Prototypes ------------------------- */
-
-
-/* ----------- File Global Variables ----------------------------- */
 
 
 /* ----------- Global Functions ---------------------------------- */
 int main(void)
 {
-  // Allocate 1 block of 5555 bytes never free'd.
+  /* Allocate 1 block of 5555 bytes never free'd */
   void* ptr = malloc(5555);
   if (ptr == NULL)
   {
     return 1;
   }
 
-  // Allocate 3 blocks of 2222 bytes each never free'd.
+  /* Allocate 3 blocks of 2222 bytes each never free'd */
   int a = 3;
   while(a-- > 0)
   {
@@ -43,12 +33,9 @@ int main(void)
     }
   }
 
-  // Allocate 1 block of 1111 bytes immediately free'd.
+  /* Allocate 1 block of 1111 bytes immediately free'd */
   free(malloc(1111));
 
   return 0;
 }
-
-
-/* ----------- Local Functions ----------------------------------- */
 
