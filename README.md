@@ -36,11 +36,14 @@ Usage
 
 General usage syntax:
 
-    heapusage [-n] [-o path] PROG [ARGS..]
+    heapusage [-m minsize] [-n] [-o path] PROG [ARGS..]
     heapusage --help
     heapusage --version
 
 Options:
+
+    -m <minsize>
+           minimum leak in bytes for detailed reporting
 
     -n     no symbol lookup (faster)
 

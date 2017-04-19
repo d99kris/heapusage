@@ -10,11 +10,12 @@ showusage()
   echo "Heapusage is a light-weight tool for finding memory leaks and more"
   echo "generally checking heap usage in applications."
   echo ""
-  echo "Usage: heapusage [-n] [-o path] PROG [ARGS..]"
+  echo "Usage: heapusage [-m minsize] [-n] [-o path] PROG [ARGS..]"
   echo "   or: heapusage --help"
   echo "   or: heapusage --version"
   echo ""
   echo "Options:"
+  echo "   -m <minsize>    minimum leak in bytes for detailed reporting"
   echo "   -n              no symbol lookup (faster)"
   echo "   -o <path>       write output to specified file path, instead of stderr"
   echo "   PROG            program to run and analyze"
@@ -55,13 +56,17 @@ elif [ "${#}" == "0" ] ; then
 fi
 
 # Arguments - regular options
+MINLEAK="0"
 NOSYMS="0"
 OUTFILE=""
-while getopts "?no:" OPT; do
+while getopts "?m:no:" OPT; do
   case "${OPT}" in
   \?)
     showusage
     exit 1
+    ;;
+  m)
+    MINLEAK="${OPTARG}"
     ;;
   n)
     NOSYMS="1"
@@ -111,7 +116,7 @@ if [ "$(uname)" == "Darwin" ]; then
         TMP=$(mktemp -d)
         TMPLOG="${TMP}/heapusage.log"
         # Run program
-        HU_FILE="${TMPLOG}" HU_NOSYMS="${NOSYMS}" \
+        HU_FILE="${TMPLOG}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" \
           DYLD_INSERT_LIBRARIES="${LIBPATH}" DYLD_FORCE_FLAT_NAMESPACE=1 "${@:1}"
         RV=${?}
         if [ -f "${TMPLOG}" ]; then
@@ -123,7 +128,7 @@ if [ "$(uname)" == "Darwin" ]; then
         exit ${RV}
       else
         # Run program
-        HU_FILE="${OUTFILE}" HU_NOSYMS="${NOSYMS}" \
+        HU_FILE="${OUTFILE}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" \
           DYLD_INSERT_LIBRARIES="${LIBPATH}" DYLD_FORCE_FLAT_NAMESPACE=1 "${@:1}"
         RV=${?}
         if [ ! -f "${OUTFILE}" ]; then
@@ -160,7 +165,7 @@ elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
         TMP=$(mktemp -d)
         TMPLOG="${TMP}/heapusage.log"
         # Run program
-        HU_FILE="${TMPLOG}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
+        HU_FILE="${TMPLOG}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
         RV=${?}
         if [ -f "${TMPLOG}" ]; then
           cat "${TMPLOG}" >&2
@@ -171,7 +176,7 @@ elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
         exit ${RV}
       else
         # Run program
-        HU_FILE="${OUTFILE}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
+        HU_FILE="${OUTFILE}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
         RV=${?}
         if [ ! -f "${OUTFILE}" ]; then
           echo "error: unable to preload libheapusage"

@@ -4,7 +4,7 @@
 heapusage \- find memory leaks and measure heap usage in applications
 .SH SYNOPSIS
 .B heapusage
-[\fI\,-n\/\fR] [\fI\,-o path\/\fR] \fI\,PROG \/\fR[\fI\,ARGS\/\fR..]
+[\fI\,-m minsize\/\fR] [\fI\,-n\/\fR] [\fI\,-o path\/\fR] \fI\,PROG \/\fR[\fI\,ARGS\/\fR..]
 .br
 .B heapusage
 \fI\,--help\/\fR
@@ -15,6 +15,9 @@ heapusage \- find memory leaks and measure heap usage in applications
 Heapusage is a light\-weight tool for finding memory leaks and more
 generally checking heap usage in applications.
 .SH OPTIONS
+.TP
+\fB\-m\fR <minsize>
+minimum leak in bytes for detailed reporting
 .TP
 \fB\-n\fR
 no symbol lookup (faster)

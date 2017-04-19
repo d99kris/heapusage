@@ -36,7 +36,7 @@
 typedef struct hu_allocinfo_s
 {
   void *ptr;
-  size_t size;
+  ssize_t size;
   void *callstack[MAX_CALL_STACK];
   int callstack_depth;
   int count;
@@ -47,6 +47,7 @@ typedef struct hu_allocinfo_s
 static pid_t pid = 0;
 static char *hu_log_file = NULL;
 static int hu_log_nosyms = 0;
+static ssize_t hu_log_minleak = 0;
 
 static int callcount = 0;
 static int logging_enabled = 0;
@@ -85,6 +86,7 @@ void log_init()
   /* Get runtime info */
   hu_log_file = getenv("HU_FILE");
   hu_log_nosyms = ((getenv("HU_NOSYMS") != NULL) && (strcmp(getenv("HU_NOSYMS"), "1") == 0));
+  hu_log_minleak = getenv("HU_MINLEAK") ? strtoll(getenv("HU_MINLEAK"), NULL, 10) : 0;
   pid = getpid();
 
   /* Initial log output */
@@ -213,36 +215,37 @@ void log_summary()
   fprintf(f, "==%d== \n", pid);
 
   /* Output leak details */
-  for (auto it = allocations_by_size.rbegin(); it != allocations_by_size.rend(); ++it)
+  for (auto it = allocations_by_size.rbegin(); (it != allocations_by_size.rend()) && (it->size >= hu_log_minleak); ++it)
   {
     fprintf(f, "==%d== %zu bytes in %d block(s) are lost, originally allocated at:\n", pid, it->size, it->count);
 
-    if (hu_log_nosyms)
+    if (it->callstack_depth > 0)
     {
       int i = 1;
       while (i < it->callstack_depth)
       {
 #if UINTPTR_MAX == 0xffffffff
-        fprintf(f, "==%d==    at 0x%08x\n", pid, (unsigned int) it->callstack[i]);
+        fprintf(f, "==%d==    at 0x%08x", pid, (unsigned int) it->callstack[i]);
 #else
-        fprintf(f, "==%d==    at 0x%016" PRIxPTR "\n", pid, (unsigned long) it->callstack[i]);
+        fprintf(f, "==%d==    at 0x%016" PRIxPTR, pid, (unsigned long) it->callstack[i]);
 #endif
+
+        if (hu_log_nosyms)
+        {
+          fprintf(f, "\n");
+        }
+        else
+        {
+          std::string symbol = addr_to_symbol(it->callstack[i]);
+          fprintf(f, ": %s\n", symbol.c_str());
+        }
+
         ++i;
       }
-    }    
+    }
     else
     {
-      int i = 1;
-      while (i < it->callstack_depth)
-      {
-        std::string symbol = addr_to_symbol(it->callstack[i]);
-#if UINTPTR_MAX == 0xffffffff
-        fprintf(f, "==%d==    at 0x%08x: %s\n", pid, (unsigned int) it->callstack[i], symbol.c_str());
-#else
-        fprintf(f, "==%d==    at 0x%016" PRIxPTR ": %s\n", pid, (unsigned long) it->callstack[i], symbol.c_str());
-#endif
-        ++i;
-      }
+        fprintf(f, "==%d==    error: backtrace() returned empty callstack\n", pid);
     }
     
     fprintf(f, "==%d== \n", pid);
@@ -304,3 +307,4 @@ static std::string addr_to_symbol(void *addr)
 
   return symbol;
 }
+
