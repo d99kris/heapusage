@@ -5,14 +5,16 @@ libheapusage_la_SOURCES      = humain.c hulog.cpp
 libheapusage_la_LDFLAGS      = -shared -fPIC -ldl -lpthread                  \
                                $(EXTRA_LDFLAGS) -version-info 1:0:0
 
-libheapusage_la_CFLAGS       = -Wall -Wextra -Wpedantic -std=c99             \
+libheapusage_la_CFLAGS       = -std=c99 -funwind-tables                      \
+                               -Wall -Wextra -Wpedantic                      \
                                -Wshadow -Wpointer-arith -Wcast-qual          \
                                -Wstrict-prototypes -Wmissing-prototypes      \
                                -Wno-missing-braces -Wswitch-default          \
                                -Wcast-align -Wunreachable-code -Wundef       \
                                -Wuninitialized
 
-libheapusage_la_CXXFLAGS     = -Wall -Wextra -Wpedantic -std=c++11           \
+libheapusage_la_CXXFLAGS     = -std=c++11 -funwind-tables                    \
+                               -Wall -Wextra -Wpedantic                      \
                                -Wshadow -Wpointer-arith -Wcast-qual          \
                                -Wno-missing-braces -Wswitch-default          \
                                -Wcast-align -Wunreachable-code -Wundef       \
