@@ -12,6 +12,7 @@ Heapusage is primarily developed and tested on Linux, but basic
 functionality should work in macOS / OS X as well. Current version has been tested on:
 - OS X El Capitan 10.11
 - Ubuntu 16.04 LTS
+- (Raspbian / Raspberry Pi 3 - based on fix for [issue #1](https://github.com/d99kris/heapusage/issues/1))
 
 Limitation: On macOS / OS X this tool relies on code injection using DYLD_INSERT_LIBRARIES,
 which generally does not work with third-party applications in a standard system. Using it on
