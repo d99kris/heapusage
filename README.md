@@ -20,6 +20,10 @@ which generally does not work with third-party applications in a standard system
 
 Installation
 ============
+Pre-requisites (Ubuntu):
+
+    sudo apt install git cmake build-essential
+
 Download the source code:
 
     git clone https://github.com/d99kris/heapusage && cd heapusage
