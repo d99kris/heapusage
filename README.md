@@ -127,9 +127,9 @@ Example output:
 The corresponding file and line number of the stacktrace addresses can be determined
 using addr2line on Linux (the equivalent tool for macOS is atos):
 
-    $ addr2line -f -e ./test/hutest01 0x40080d
+    $ addr2line -f -e ./build/hutest01 0x000000000040080d
     main
-    test/hutest01.c:39
+    tests/hutest01.c:29
 
 Technical Details
 =================
