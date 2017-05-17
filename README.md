@@ -24,9 +24,9 @@ Download the source code:
 
     git clone https://github.com/d99kris/heapusage && cd heapusage
 
-Configure and build:
+Generate Makefile and build:
 
-    ./configure && make
+    mkdir -p build && cd build && cmake .. && make -s
 
 Optionally install in system:
 
@@ -62,12 +62,12 @@ Options:
 
 Example checking heap usage of test program 'hutest01' with heapusage installed on system:
 
-    heapusage ./test/hutest01
+    heapusage ./build/hutest01
 
 Example checking heap usage of test program 'hutest01' without heapusage being installed on system and
 saving the output to a log file:
 
-    ./src/heapusage -o /tmp/heapusage.log ./test/hutest01
+    ./build/heapusage -o /tmp/heapusage.log ./build/hutest01
 
 Advanced Usage (Library)
 ========================
@@ -84,7 +84,7 @@ General usage syntax:
 
 Example using libheapusage (without system install) with gedit logging to file heaplog.txt:
 
-    HU_FILE="heaplog.txt" LD_PRELOAD="./src/.libs/libheapusage.so" gedit
+    HU_FILE="heaplog.txt" LD_PRELOAD="./build/libheapusage.so" gedit
 
 macOS / OS X
 ------------
@@ -95,13 +95,13 @@ General usage syntax:
 
 Example using libheapusage (without system install) with hutest01 application:
 
-    HU_FILE="heaplog.txt" DYLD_INSERT_LIBRARIES="./src/.libs/libheapusage.1.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 ./test/hutest01
+    HU_FILE="heaplog.txt" DYLD_INSERT_LIBRARIES="./build/libheapusage.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 ./build/hutest01
 
 Output
 ======
 Example output:
 
-    $ ./src/heapusage ./test/hutest01
+    $ ./build/heapusage ./build/hutest01
     ==22648== Heapusage - https://github.com/d99kris/heapusage
     ==22648== 
     ==22648== HEAP SUMMARY:

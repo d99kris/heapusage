@@ -97,7 +97,7 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 # Start program with libheapusage
 if [ "$(uname)" == "Darwin" ]; then
   # Mac OS X
-  LIBNAME="libheapusage.1.dylib"
+  LIBNAME="libheapusage.dylib"
 
   # Supported library paths
   LIBPATHS=(
