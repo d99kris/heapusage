@@ -1,7 +1,7 @@
 # Project
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(heapusage VERSION 1.0 LANGUAGES C CXX)
-set(COMMON_FLAGS "-funwind-tables -Wall -Wextra -Wpedantic -Wshadow -Wpointer-arith -Wcast-qual \
+set(COMMON_FLAGS "-funwind-tables -g -Wall -Wextra -Wpedantic -Wshadow -Wpointer-arith -Wcast-qual \
                   -Wno-missing-braces -Wswitch-default -Wcast-align -Wunreachable-code -Wundef \
                   -Wuninitialized")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 ${COMMON_FLAGS} -Wstrict-prototypes -Wmissing-prototypes")
