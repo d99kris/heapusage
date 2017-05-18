@@ -66,12 +66,12 @@ Options:
 
 Example checking heap usage of test program 'hutest01' with heapusage installed on system:
 
-    heapusage ./build/hutest01
+    heapusage ./hutest01
 
 Example checking heap usage of test program 'hutest01' without heapusage being installed on system and
 saving the output to a log file:
 
-    ./build/heapusage -o /tmp/heapusage.log ./build/hutest01
+    ./heapusage -o /tmp/heapusage.log ./hutest01
 
 Advanced Usage (Library)
 ========================
@@ -88,7 +88,7 @@ General usage syntax:
 
 Example using libheapusage (without system install) with gedit logging to file heaplog.txt:
 
-    HU_FILE="heaplog.txt" LD_PRELOAD="./build/libheapusage.so" gedit
+    HU_FILE="heaplog.txt" LD_PRELOAD="./libheapusage.so" gedit
 
 macOS / OS X
 ------------
@@ -99,13 +99,13 @@ General usage syntax:
 
 Example using libheapusage (without system install) with hutest01 application:
 
-    HU_FILE="heaplog.txt" DYLD_INSERT_LIBRARIES="./build/libheapusage.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 ./build/hutest01
+    HU_FILE="heaplog.txt" DYLD_INSERT_LIBRARIES="./libheapusage.dylib" DYLD_FORCE_FLAT_NAMESPACE=1 ./hutest01
 
 Output
 ======
 Example output:
 
-    $ ./build/heapusage ./build/hutest01
+    $ ./heapusage ./hutest01
     ==22648== Heapusage - https://github.com/d99kris/heapusage
     ==22648== 
     ==22648== HEAP SUMMARY:
@@ -131,7 +131,7 @@ Example output:
 The corresponding file and line number of the stacktrace addresses can be determined
 using addr2line on Linux (the equivalent tool for macOS is atos):
 
-    $ addr2line -f -e ./build/hutest01 0x000000000040080d
+    $ addr2line -f -e ./hutest01 0x000000000040080d
     main
     tests/hutest01.c:29
 
