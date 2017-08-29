@@ -7,8 +7,8 @@
 
 showusage()
 {
-  echo "Heapusage is a light-weight tool for finding memory leaks and more"
-  echo "generally checking heap usage in applications."
+  echo "Heapusage is a light-weight tool for finding memory leaks in"
+  echo "applications."
   echo ""
   echo "Usage: heapusage [-m minsize] [-n] [-o path] PROG [ARGS..]"
   echo "   or: heapusage --help"

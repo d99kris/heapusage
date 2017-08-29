@@ -90,7 +90,7 @@ Options:
     --version
            output version information and exit
 
-Example checking heap usage of test program 'hutest01' with heapusage installed on system:
+Example running heapusage with test program 'hutest01':
 
     heapusage ./hutest01
 
