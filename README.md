@@ -1,5 +1,10 @@
 Heapusage
 =========
+
+| **Linux + Mac** |
+|-----------------|
+| [![Build status](https://travis-ci.org/d99kris/heapusage.svg?branch=master)](https://travis-ci.org/d99kris/heapusage) |
+
 Heapusage is a light-weight tool for finding memory leaks in Linux and macOS applications. It provides
 a small but important subset of Valgrind's memcheck functionality, and can be a useful alternative to
 it for debugging memory leaks in certain scenarios such as:
@@ -9,7 +14,7 @@ it for debugging memory leaks in certain scenarios such as:
 Example Usage
 =============
 
-    $ heapusage ./hutest01
+    $ heapusage ./ex001
     ==22648== Heapusage - https://github.com/d99kris/heapusage
     ==22648== 
     ==22648== HEAP SUMMARY:
@@ -90,15 +95,14 @@ Options:
     --version
            output version information and exit
 
-Example running heapusage with test program 'hutest01':
+Example running heapusage with test program 'ex001':
 
-    heapusage ./hutest01
+    heapusage ./ex001
 
 Output Format
 =============
 Example output:
 
-    $ heapusage ./hutest01
     ==22648== Heapusage - https://github.com/d99kris/heapusage
     ==22648== 
     ==22648== HEAP SUMMARY:
@@ -124,9 +128,9 @@ Example output:
 The corresponding file and line number of the stacktrace addresses can be determined
 using addr2line on Linux (the equivalent tool for macOS is atos):
 
-    $ addr2line -f -e ./hutest01 0x000000000040080d
+    $ addr2line -f -e ./ex001 0x000000000040080d
     main
-    tests/hutest01.c:29
+    tests/ex001.c:29
 
 Technical Details
 =================

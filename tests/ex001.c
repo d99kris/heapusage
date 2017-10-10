@@ -1,5 +1,5 @@
 /*
- * hutest01.c
+ * ex001.c
  *
  * Copyright (C) 2017 Kristofer Berggren
  * All rights reserved.

@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Environment
+RV=0
+TMPDIR=$(mktemp -d)
+
+# Run application
+./heapusage ./ex001 > ${TMPDIR}/out.txt 2> ${TMPDIR}/err.txt
+
+# Expected
+# ==4803== Heapusage - https://github.com/d99kris/heapusage
+# ==4803==
+# ==4803== HEAP SUMMARY:
+# ==4803==     in use at exit: 12221 bytes in 4 blocks
+# ==4803==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
+# ==4803==
+# ==4803== 6666 bytes in 3 block(s) are lost, originally allocated at:
+# ==4803==    at 0x00007f13ad3a5f9d: malloc + 49
+# ==4803==    at 0x0000564b911588e7: main + 55
+# ==4803==    at 0x00007f13acfe83f1: __libc_start_main + 241
+# ==4803==    at 0x0000564b911587aa: _start + 42
+# ==4803==
+# ==4803== 5555 bytes in 1 block(s) are lost, originally allocated at:
+# ==4803==    at 0x00007f13ad3a5f9d: malloc + 49
+# ==4803==    at 0x0000564b911588c2: main + 18
+# ==4803==    at 0x00007f13acfe83f1: __libc_start_main + 241
+# ==4803==    at 0x0000564b911587aa: _start + 42
+# ==4803==
+# ==4803== LEAK SUMMARY:
+# ==4803==    definitely lost: 12221 bytes in 4 blocks
+# ==4803==
+
+# Check result - header
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | head -1 | tail -1)
+EXPT=" Heapusage - https://github.com/d99kris/heapusage"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | head -3 | tail -1)
+EXPT=" HEAP SUMMARY:"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | head -4 | tail -1)
+EXPT="     in use at exit: 12221 bytes in 4 blocks"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | head -5 | tail -1)
+EXPT="   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check result - details
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | grep 'are lost' | head -1 | tail -1)
+EXPT=" 6666 bytes in 3 block(s) are lost, originally allocated at:"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | grep 'are lost' | head -2 | tail -1)
+EXPT=" 5555 bytes in 1 block(s) are lost, originally allocated at:"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check result - summary
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | tail -3 | head -1)
+EXPT=" LEAK SUMMARY:"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | tail -2 | head -1)
+EXPT="    definitely lost: 12221 bytes in 4 blocks"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Cleanup
+rm -rf ${TMPDIR}
+
+# Exit
+exit ${RV}
+

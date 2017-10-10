@@ -22,5 +22,10 @@ install(PROGRAMS src/heapusage DESTINATION bin)
 install(FILES src/heapusage.1 DESTINATION share/man/man1)
 
 # Tests
-add_executable(hutest01 tests/hutest01.c)
+enable_testing()
+
+add_executable(ex001 tests/ex001.c)
+
+configure_file(tests/test001 ${CMAKE_CURRENT_BINARY_DIR}/test001 COPYONLY)
+add_test(test001 "${PROJECT_BINARY_DIR}/test001")
 
