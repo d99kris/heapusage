@@ -151,4 +151,3 @@ Heapusage is distributed under the BSD 3-Clause license. See LICENSE file.
 Keywords
 ========
 linux, macos, os x, heap usage, finding memory leaks, alternative to valgrind.
-
