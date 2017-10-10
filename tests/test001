@@ -52,13 +52,6 @@ if [ "${LINE}" != "${EXPT}" ]; then
   RV=1
 fi
 
-LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | head -5 | tail -1)
-EXPT="   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated"
-if [ "${LINE}" != "${EXPT}" ]; then
-  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
-  RV=1
-fi
-
 # Check result - details
 LINE=$(cat ${TMPDIR}/err.txt | cut -d'=' -f5 | grep 'are lost' | head -1 | tail -1)
 EXPT=" 6666 bytes in 3 block(s) are lost, originally allocated at:"
