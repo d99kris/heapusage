@@ -35,7 +35,7 @@ void __attribute__ ((destructor)) nu_fini(void)
 }
 
 
-#ifdef __linux__
+#if defined(__linux__)
 /* ----------- Linux Wrapper Functions --------------------------- */
 /* Extern declarations of glibc actual heap functions */
 extern void *__libc_malloc(size_t size);
@@ -72,7 +72,7 @@ void *realloc(void *ptr, size_t size)
 }
 
 
-#elif __APPLE__
+#elif defined(__APPLE__)
 /* ----------- Apple Wrapper Functions --------------------------- */
 #define DYLD_INTERPOSE(_newfun, _orgfun) \
 __attribute__((used)) static struct{ const void *newfun; const void *orgfun; } _interpose_##_orgfun \
