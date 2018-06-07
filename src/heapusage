@@ -94,107 +94,76 @@ while [ -h "$SOURCE" ]; do
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-# Start program with libheapusage
+# Set Heapusage library name
 if [ "$(uname)" == "Darwin" ]; then
-  # Mac OS X
+  # Mac
   LIBNAME="libheapusage.dylib"
-
-  # Supported library paths
-  LIBPATHS=(
-    "${DIR}/../lib/${LIBNAME}"
-    "${DIR}/.libs/${LIBNAME}"
-    "${DIR}/${LIBNAME}"
-  )
-
-  # Iterate through library paths
-  CNT=0
-  while [ "${LIBPATHS[CNT]}" != "" ]; do
-    LIBPATH="${LIBPATHS[CNT]}"
-    if [ -e "${LIBPATH}" ]; then
-      if [ "${OUTFILE}" == "" ]; then
-        # Create temporary output dir and set up log file path
-        TMP=$(mktemp -d)
-        TMPLOG="${TMP}/heapusage.log"
-        # Run program
-        HU_FILE="${TMPLOG}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" \
-          DYLD_INSERT_LIBRARIES="${LIBPATH}" DYLD_FORCE_FLAT_NAMESPACE=1 "${@:1}"
-        RV=${?}
-        if [ -f "${TMPLOG}" ]; then
-          cat "${TMPLOG}" >&2
-        else
-          echo "error: unable to preload libheapusage"
-        fi
-        rm -rf "${TMP}" 2> /dev/null
-        exit ${RV}
-      else
-        # Run program
-        HU_FILE="${OUTFILE}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" \
-          DYLD_INSERT_LIBRARIES="${LIBPATH}" DYLD_FORCE_FLAT_NAMESPACE=1 "${@:1}"
-        RV=${?}
-        if [ ! -f "${OUTFILE}" ]; then
-          echo "error: unable to preload libheapusage"
-        fi
-        exit ${RV}
-      fi
-    fi
-    CNT=$((${CNT} + 1))
-  done
-  
-  # Report error if library not found
-  echo "error: unable to determine path of ${LIBNAME}"
-  exit 1
-
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
   # GNU/Linux
   LIBNAME="libheapusage.so"
-
-  # Supported library paths
-  LIBPATHS=(
-    "${DIR}/../lib/${LIBNAME}"
-    "${DIR}/.libs/${LIBNAME}"
-    "${DIR}/${LIBNAME}"
-  )
-
-  # Iterate through library paths
-  CNT=0
-  while [ "${LIBPATHS[CNT]}" != "" ]; do
-    LIBPATH="${LIBPATHS[CNT]}"
-    if [ -e "${LIBPATH}" ]; then
-      if [ "${OUTFILE}" == "" ]; then
-        # Create temporary output dir and set up log file path
-        TMP=$(mktemp -d)
-        TMPLOG="${TMP}/heapusage.log"
-        # Run program
-        HU_FILE="${TMPLOG}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
-        RV=${?}
-        if [ -f "${TMPLOG}" ]; then
-          cat "${TMPLOG}" >&2
-        else
-          echo "error: unable to preload libheapusage"
-        fi
-        rm -rf "${TMP}" 2> /dev/null
-        exit ${RV}
-      else
-        # Run program
-        HU_FILE="${OUTFILE}" HU_MINLEAK="${MINLEAK}" HU_NOSYMS="${NOSYMS}" LD_PRELOAD="${LIBPATH}" "${@:1}"
-        RV=${?}
-        if [ ! -f "${OUTFILE}" ]; then
-          echo "error: unable to preload libheapusage"
-        fi
-        exit ${RV}
-      fi
-    fi
-    CNT=$((${CNT} + 1))
-  done
-  
-  # Report error if library not found
-  echo "error: unable to determine path of ${LIBNAME}"
-  exit 1
-
 else
   # Unsupported OS
   echo "Unsupported OS"
+  exit 1
 fi
 
-exit 1
+# Supported library paths
+LIBPATHS=(
+  "${DIR}/../lib/${LIBNAME}"
+  "${DIR}/.libs/${LIBNAME}"
+  "${DIR}/${LIBNAME}"
+)
 
+# Set output path
+if [ "${OUTFILE}" == "" ]; then
+  # Create temporary output dir and set up log file path
+  TMP=$(mktemp -d)
+  TMPLOG="${TMP}/heapusage.log"
+else
+  # Clear temp log path, just to be safe
+  TMPLOG=""
+fi
+
+# Iterate through library paths
+RV=1
+CNT=0
+FOUND=0
+while [ "${LIBPATHS[CNT]}" != "" ]; do
+  LIBPATH="${LIBPATHS[CNT]}"
+  if [ -e "${LIBPATH}" ]; then
+
+    # Run program
+    HU_FILE="${TMPLOG}${OUTFILE}"         \
+    HU_MINLEAK="${MINLEAK}"               \
+    HU_NOSYMS="${NOSYMS}"                 \
+    LD_PRELOAD="${LIBPATH}"               \
+    DYLD_INSERT_LIBRARIES="${LIBPATH}"    \
+    DYLD_FORCE_FLAT_NAMESPACE=1           \
+    "${@:1}"
+
+    FOUND=1
+    RV=${?}
+    break
+  fi
+  CNT=$((${CNT} + 1))
+done
+
+# Report error if library not found
+if [ "${FOUND}" != "1" ]; then
+  echo "error: unable to determine path of ${LIBNAME}"
+  exit 1
+fi
+
+# Process temporary output dir
+if [ "${OUTFILE}" == "" ]; then
+  if [ -f "${TMPLOG}" ]; then
+    cat "${TMPLOG}" >&2
+  else
+    echo "error: unable to preload libheapusage"
+  fi
+
+  rm -rf "${TMP}" 2> /dev/null
+fi
+
+# Exit
+exit ${RV}
