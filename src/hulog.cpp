@@ -63,8 +63,6 @@ static pthread_mutex_t recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static unsigned long long allocinfo_total_frees = 0;
 static unsigned long long allocinfo_total_allocs = 0;
 static unsigned long long allocinfo_total_alloc_bytes = 0;
-static unsigned long long allocinfo_current_alloc_bytes = 0;
-static unsigned long long allocinfo_peak_alloc_bytes = 0;
 
 static std::map<void*, hu_allocinfo_t> allocations;
 static std::map<void*, std::string> symbol_cache;
@@ -117,38 +115,6 @@ void log_enable(int flag)
   logging_enabled = flag;
 }
 
-void log_print_callstack(FILE *f, int callstack_depth, void * const callstack[])
-{
-  if (callstack_depth > 0)
-  {
-    int i = 1;
-    while (i < callstack_depth)
-    {
-#if UINTPTR_MAX == 0xffffffff
-      fprintf(f, "==%d==    at 0x%08x", pid, (unsigned int) callstack[i]);
-#else
-      fprintf(f, "==%d==    at 0x%016" PRIxPTR, pid, (unsigned long) callstack[i]);
-#endif
-
-      if (hu_log_nosyms)
-      {
-        fprintf(f, "\n");
-      }
-      else
-      {
-        std::string symbol = addr_to_symbol(callstack[i]);
-        fprintf(f, ": %s\n", symbol.c_str());
-      }
-
-      ++i;
-    }
-  }
-  else
-  {
-    fprintf(f, "==%d==    error: backtrace() returned empty callstack\n", pid);
-  }
-}
-
 void log_event(int event, void *ptr, size_t size)
 {
   if (logging_enabled)
@@ -179,36 +145,9 @@ void log_event(int event, void *ptr, size_t size)
         
         allocinfo_total_allocs += 1;
         allocinfo_total_alloc_bytes += size;
-        allocinfo_current_alloc_bytes += size;
-
-        if (allocinfo_current_alloc_bytes > allocinfo_peak_alloc_bytes)
-        {
-          allocinfo_peak_alloc_bytes = allocinfo_current_alloc_bytes;
-        }
       }
       else if (event == EVENT_FREE)
       {
-        std::map<void*, hu_allocinfo_t>::iterator allocation = allocations.find(ptr);
-        if (allocation != allocations.end())
-        {
-          allocinfo_current_alloc_bytes -= allocation->second.size;
-        }
-        else
-        {
-          FILE *f = fopen(hu_log_file, "a");
-          if (f)
-          {
-            fprintf(f, "==%d== Invalid deallocation at:\n", pid);
-
-            void *callstack[MAX_CALL_STACK];
-            int callstack_depth = backtrace(callstack, MAX_CALL_STACK);
-            log_print_callstack(f, callstack_depth, callstack);
-
-            fprintf(f, "==%d== \n", pid);
-            fclose(f);
-          }
-        }
-
         allocinfo_total_frees += 1;
         allocations.erase(ptr);
       }
@@ -273,8 +212,6 @@ void log_summary()
           pid, leak_total_bytes, leak_total_blocks);
   fprintf(f, "==%d==   total heap usage: %llu allocs, %llu frees, %llu bytes allocated\n",
           pid, allocinfo_total_allocs, allocinfo_total_frees, allocinfo_total_alloc_bytes);
-  fprintf(f, "==%d==    peak heap usage: %llu bytes allocated\n",
-          pid, allocinfo_peak_alloc_bytes);
   fprintf(f, "==%d== \n", pid);
 
   /* Output leak details */
@@ -282,7 +219,34 @@ void log_summary()
   {
     fprintf(f, "==%d== %zu bytes in %d block(s) are lost, originally allocated at:\n", pid, it->size, it->count);
 
-    log_print_callstack(f, it->callstack_depth, it->callstack);
+    if (it->callstack_depth > 0)
+    {
+      int i = 1;
+      while (i < it->callstack_depth)
+      {
+#if UINTPTR_MAX == 0xffffffff
+        fprintf(f, "==%d==    at 0x%08x", pid, (unsigned int) it->callstack[i]);
+#else
+        fprintf(f, "==%d==    at 0x%016" PRIxPTR, pid, (unsigned long) it->callstack[i]);
+#endif
+
+        if (hu_log_nosyms)
+        {
+          fprintf(f, "\n");
+        }
+        else
+        {
+          std::string symbol = addr_to_symbol(it->callstack[i]);
+          fprintf(f, ": %s\n", symbol.c_str());
+        }
+
+        ++i;
+      }
+    }
+    else
+    {
+        fprintf(f, "==%d==    error: backtrace() returned empty callstack\n", pid);
+    }
     
     fprintf(f, "==%d== \n", pid);
   }
