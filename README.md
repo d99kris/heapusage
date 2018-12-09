@@ -72,11 +72,15 @@ Usage
 
 General usage syntax:
 
-    heapusage [-m minsize] [-n] [-o path] PROG [ARGS..]
+    heapusage [-d] [-f] [-m minsize] [-n] [-o path] PROG [ARGS..]
     heapusage --help
     heapusage --version
 
 Options:
+
+    -d     debug mode, running program through debugger
+
+    -f     check for invalid free's (experimental)
 
     -m <minsize>
            minimum leak in bytes for detailed reporting
