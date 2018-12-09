@@ -13,6 +13,7 @@
 #include <dlfcn.h>
 #include <execinfo.h>
 #include <inttypes.h>
+#include <libgen.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -46,6 +47,7 @@ typedef struct hu_allocinfo_s
 /* ----------- File Global Variables ----------------------------- */
 static pid_t pid = 0;
 static char *hu_log_file = NULL;
+static int hu_log_free = 0;
 static int hu_log_nosyms = 0;
 static ssize_t hu_log_minleak = 0;
 
@@ -63,9 +65,12 @@ static pthread_mutex_t recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static unsigned long long allocinfo_total_frees = 0;
 static unsigned long long allocinfo_total_allocs = 0;
 static unsigned long long allocinfo_total_alloc_bytes = 0;
+static unsigned long long allocinfo_current_alloc_bytes = 0;
+static unsigned long long allocinfo_peak_alloc_bytes = 0;
 
 static std::map<void*, hu_allocinfo_t> allocations;
 static std::map<void*, std::string> symbol_cache;
+static std::map<void*, std::string> objfile_cache;
 
 
 /* ----------- Local Functions ----------------------------------- */
@@ -85,6 +90,7 @@ void log_init()
 {
   /* Get runtime info */
   hu_log_file = getenv("HU_FILE");
+  hu_log_free = ((getenv("HU_FREE") != NULL) && (strcmp(getenv("HU_FREE"), "1") == 0));
   hu_log_nosyms = ((getenv("HU_NOSYMS") != NULL) && (strcmp(getenv("HU_NOSYMS"), "1") == 0));
   hu_log_minleak = getenv("HU_MINLEAK") ? strtoll(getenv("HU_MINLEAK"), NULL, 10) : 0;
   pid = getpid();
@@ -113,6 +119,84 @@ void log_init()
 void log_enable(int flag)
 {
   logging_enabled = flag;
+}
+
+void log_print_callstack(FILE *f, int callstack_depth, void * const callstack[])
+{
+  if (callstack_depth > 0)
+  {
+    int i = 1;
+    while (i < callstack_depth)
+    {
+#if UINTPTR_MAX == 0xffffffff
+      fprintf(f, "==%d==    at 0x%08x", pid, (unsigned int) callstack[i]);
+#else
+      fprintf(f, "==%d==    at 0x%016" PRIxPTR, pid, (unsigned long) callstack[i]);
+#endif
+
+      if (hu_log_nosyms)
+      {
+        fprintf(f, "\n");
+      }
+      else
+      {
+        std::string symbol = addr_to_symbol(callstack[i]);
+        fprintf(f, ": %s\n", symbol.c_str());
+      }
+
+      ++i;
+    }
+  }
+  else
+  {
+    fprintf(f, "==%d==    error: backtrace() returned empty callstack\n", pid);
+  }
+}
+
+bool log_is_valid_callstack(int callstack_depth, void * const callstack[], bool is_alloc)
+{
+  int i = callstack_depth - 1;
+  std::string objfile;
+  while (i > 0)
+  {
+    void *addr = callstack[i];
+
+    auto it = objfile_cache.find(addr);
+    if (it != objfile_cache.end())
+    {
+      objfile = it->second;
+    }
+    else
+    {
+      Dl_info dlinfo;
+      if (dladdr(addr, &dlinfo) && dlinfo.dli_fname)
+      {
+        char *fname = strdup(dlinfo.dli_fname);
+        if (fname)
+        {
+          objfile = std::string(basename(fname));
+          objfile_cache[addr] = objfile;
+          free(fname);
+        }
+      }
+    }
+
+    if (!objfile.empty())
+    {
+      // For now only care about originating object file
+      break;
+    }
+      
+    --i;
+  }
+
+  if (!objfile.empty())
+  {
+      // ignore invalid dealloc from libobjc
+      if (!is_alloc && (objfile == "libobjc.A.dylib")) return false;
+  }
+
+  return true;
 }
 
 void log_event(int event, void *ptr, size_t size)
@@ -145,11 +229,43 @@ void log_event(int event, void *ptr, size_t size)
         
         allocinfo_total_allocs += 1;
         allocinfo_total_alloc_bytes += size;
+        allocinfo_current_alloc_bytes += size;
+
+        if (allocinfo_current_alloc_bytes > allocinfo_peak_alloc_bytes)
+        {
+          allocinfo_peak_alloc_bytes = allocinfo_current_alloc_bytes;
+        }
       }
       else if (event == EVENT_FREE)
       {
+        std::map<void*, hu_allocinfo_t>::iterator allocation = allocations.find(ptr);
+        if (allocation != allocations.end())
+        {
+          allocinfo_current_alloc_bytes -= allocation->second.size;
+
+          allocations.erase(ptr);
+        }
+        else if (hu_log_free)
+        {
+          void *callstack[MAX_CALL_STACK];
+          int callstack_depth = backtrace(callstack, MAX_CALL_STACK);
+          if (log_is_valid_callstack(callstack_depth, callstack, false))
+          {
+            FILE *f = fopen(hu_log_file, "a");
+            if (f)
+            {
+              fprintf(f, "==%d== Invalid deallocation at:\n", pid);
+
+              log_print_callstack(f, callstack_depth, callstack);
+
+              fprintf(f, "==%d== \n", pid);
+
+              fclose(f);
+            }
+          }
+        }
+
         allocinfo_total_frees += 1;
-        allocations.erase(ptr);
       }
 
       pthread_mutex_lock(&callcount_lock);
@@ -212,43 +328,21 @@ void log_summary()
           pid, leak_total_bytes, leak_total_blocks);
   fprintf(f, "==%d==   total heap usage: %llu allocs, %llu frees, %llu bytes allocated\n",
           pid, allocinfo_total_allocs, allocinfo_total_frees, allocinfo_total_alloc_bytes);
+  fprintf(f, "==%d==    peak heap usage: %llu bytes allocated\n",
+          pid, allocinfo_peak_alloc_bytes);
   fprintf(f, "==%d== \n", pid);
 
   /* Output leak details */
   for (auto it = allocations_by_size.rbegin(); (it != allocations_by_size.rend()) && (it->size >= hu_log_minleak); ++it)
   {
-    fprintf(f, "==%d== %zu bytes in %d block(s) are lost, originally allocated at:\n", pid, it->size, it->count);
-
-    if (it->callstack_depth > 0)
+    if (log_is_valid_callstack(it->callstack_depth, it->callstack, true))
     {
-      int i = 1;
-      while (i < it->callstack_depth)
-      {
-#if UINTPTR_MAX == 0xffffffff
-        fprintf(f, "==%d==    at 0x%08x", pid, (unsigned int) it->callstack[i]);
-#else
-        fprintf(f, "==%d==    at 0x%016" PRIxPTR, pid, (unsigned long) it->callstack[i]);
-#endif
+      fprintf(f, "==%d== %zu bytes in %d block(s) are lost, originally allocated at:\n", pid, it->size, it->count);
 
-        if (hu_log_nosyms)
-        {
-          fprintf(f, "\n");
-        }
-        else
-        {
-          std::string symbol = addr_to_symbol(it->callstack[i]);
-          fprintf(f, ": %s\n", symbol.c_str());
-        }
-
-        ++i;
-      }
-    }
-    else
-    {
-        fprintf(f, "==%d==    error: backtrace() returned empty callstack\n", pid);
-    }
+      log_print_callstack(f, it->callstack_depth, it->callstack);
     
-    fprintf(f, "==%d== \n", pid);
+      fprintf(f, "==%d== \n", pid);
+    }
   }
   
   /* Output leak summary */

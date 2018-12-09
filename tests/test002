@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Environment
+RV=0
+TMPDIR=$(mktemp -d)
+
+# Run application
+./heapusage -f -o ${TMPDIR}/out.txt ./ex002 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
+
+# Expected out.txt:
+# ==9662== Heapusage - https://github.com/d99kris/heapusage
+# ==9662== 
+# ==9662== Invalid deallocation at:
+# ==9662==    at 0x00007f01c71656af: free + 34
+# ==9662==    at 0x0000555c7b6bf896: main + 60
+# ==9662==    at 0x00007f01c6d82b97: __libc_start_main + 231
+# ==9662==    at 0x0000555c7b6bf77a: _start + 42
+# ==9662== 
+
+# Check result - header
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -1 | tail -1)
+EXPT=" Heapusage - https://github.com/d99kris/heapusage"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check result - details
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -3 | tail -1)
+EXPT=" Invalid deallocation at:"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+LINE=$(printf "%d\n" $(grep 'at:' ${TMPDIR}/out.txt | wc -l))
+EXPT="1"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Cleanup
+rm -rf ${TMPDIR}
+
+# Exit
+exit ${RV}
+
