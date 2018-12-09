@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2017 Kristofer Berggren
+# Copyright (C) 2017-2018 Kristofer Berggren
 # All rights reserved.
 #
 # heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -10,11 +10,13 @@ showusage()
   echo "Heapusage is a light-weight tool for finding memory leaks in"
   echo "applications."
   echo ""
-  echo "Usage: heapusage [-m minsize] [-n] [-o path] PROG [ARGS..]"
+  echo "Usage: heapusage [-d] [-f] [-m minsize] [-n] [-o path] PROG [ARGS..]"
   echo "   or: heapusage --help"
   echo "   or: heapusage --version"
   echo ""
   echo "Options:"
+  echo "   -d              debug mode, running program through debugger"
+  echo "   -f              check for invalid free's (experimental)"
   echo "   -m <minsize>    minimum leak in bytes for detailed reporting"
   echo "   -n              no symbol lookup (faster)"
   echo "   -o <path>       write output to specified file path, instead of stderr"
@@ -34,9 +36,9 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v1.0"
+  echo "heapusage v1.1"
   echo ""
-  echo "Copyright (C) 2017 Kristofer Berggren"
+  echo "Copyright (C) 2017-2018 Kristofer Berggren"
   echo ""
   echo "heapusage is distributed under the BSD 3-Clause license."
   echo ""
@@ -56,14 +58,22 @@ elif [ "${#}" == "0" ] ; then
 fi
 
 # Arguments - regular options
+DEBUG="0"
+FREE="0"
 MINLEAK="0"
 NOSYMS="0"
 OUTFILE=""
-while getopts "?m:no:" OPT; do
+while getopts "?dfm:no:" OPT; do
   case "${OPT}" in
   \?)
     showusage
     exit 1
+    ;;
+  d)
+    DEBUG="1"
+    ;;
+  f)
+    FREE="1"
     ;;
   m)
     MINLEAK="${OPTARG}"
@@ -114,10 +124,12 @@ LIBPATHS=(
   "${DIR}/${LIBNAME}"
 )
 
+# Create temp dir
+TMP=$(mktemp -d)
+
 # Set output path
 if [ "${OUTFILE}" == "" ]; then
   # Create temporary output dir and set up log file path
-  TMP=$(mktemp -d)
   TMPLOG="${TMP}/heapusage.log"
 else
   # Clear temp log path, just to be safe
@@ -133,14 +145,28 @@ while [ "${LIBPATHS[CNT]}" != "" ]; do
   if [ -e "${LIBPATH}" ]; then
 
     # Run program
-    HU_FILE="${TMPLOG}${OUTFILE}"         \
-    HU_MINLEAK="${MINLEAK}"               \
-    HU_NOSYMS="${NOSYMS}"                 \
-    LD_PRELOAD="${LIBPATH}"               \
-    DYLD_INSERT_LIBRARIES="${LIBPATH}"    \
-    DYLD_FORCE_FLAT_NAMESPACE=1           \
-    "${@:1}"
-
+    if [ "${DEBUG}" == "0" ]; then
+      HU_FREE="${FREE}"                     \
+      HU_FILE="${TMPLOG}${OUTFILE}"         \
+      HU_MINLEAK="${MINLEAK}"               \
+      HU_NOSYMS="${NOSYMS}"                 \
+      LD_PRELOAD="${LIBPATH}"               \
+      DYLD_INSERT_LIBRARIES="${LIBPATH}"    \
+      DYLD_FORCE_FLAT_NAMESPACE=1           \
+      "${@:1}"
+    else
+      LLDBCMDPATH="${TMP}/lldb.cmd"
+      echo "env HU_FREE=\"${FREE}\""                    >  "${LLDBCMDPATH}"
+      echo "env HU_FILE=\"${TMPLOG}${OUTFILE}\""        >> "${LLDBCMDPATH}"
+      echo "env HU_MINLEAK=\"${MINLEAK}\""              >> "${LLDBCMDPATH}"
+      echo "env HU_NOSYMS=\"${NOSYMS}\""                >> "${LLDBCMDPATH}"
+      echo "env LD_PRELOAD=\"${LIBPATH}\""              >> "${LLDBCMDPATH}"
+      echo "env DYLD_INSERT_LIBRARIES=\"${LIBPATH}\""   >> "${LLDBCMDPATH}"
+      echo "env DYLD_FORCE_FLAT_NAMESPACE=1"            >> "${LLDBCMDPATH}"
+      echo "run ${@:2}"                                 >> "${LLDBCMDPATH}"
+      lldb "${1}" -s "${LLDBCMDPATH}"
+    fi
+    
     FOUND=1
     RV=${?}
     break
@@ -162,8 +188,10 @@ if [ "${OUTFILE}" == "" ]; then
     echo "error: unable to preload libheapusage"
   fi
 
-  rm -rf "${TMP}" 2> /dev/null
 fi
+
+# Cleanup temp dir
+rm -rf "${TMP}"
 
 # Exit
 exit ${RV}
