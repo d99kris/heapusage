@@ -5,11 +5,19 @@ Heapusage
 |-----------------|
 | [![Build status](https://travis-ci.org/d99kris/heapusage.svg?branch=master)](https://travis-ci.org/d99kris/heapusage) |
 
-Heapusage is a light-weight tool for finding memory leaks in Linux and macOS applications. It provides
-a small but important subset of Valgrind's memcheck functionality, and can be a useful alternative to
-it for debugging memory leaks in certain scenarios such as:
+Heapusage is a light-weight tool for finding memory leaks in Linux and macOS applications.
+It provides a small but important subset of Valgrind's memcheck functionality, and can be
+a useful alternative to it for debugging memory leaks in certain scenarios such as:
 - Large complex applications which cannot be run at Valgrind slowdown speed
 - Embedded systems with CPU architectures not supported by Valgrind
+
+Like Valgrind, it is recommended to run Heapusage on a debug build of the application to
+be analyzed.
+
+While Heapusage has less performance impact than Valgrind, its analysis is less precise. It
+may report leaks originating from system libraries (e.g. libc functions like `print()`) that
+might be free'd when the system library is being cleaned up.
+
 
 Example Usage
 =============
