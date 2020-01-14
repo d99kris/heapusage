@@ -3,7 +3,7 @@ Heapusage
 
 | **Linux + Mac** |
 |-----------------|
-| [![Build status](https://travis-ci.org/d99kris/heapusage.svg?branch=master)](https://travis-ci.org/d99kris/heapusage) |
+| [![Build status](https://travis-ci.com/d99kris/heapusage.svg?branch=master)](https://travis-ci.com/d99kris/heapusage) |
 
 Heapusage is a light-weight tool for finding memory leaks in Linux and macOS applications.
 It provides a small but important subset of Valgrind's memcheck functionality, and can be
