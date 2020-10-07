@@ -1,0 +1,10 @@
+==251328== Heapusage - https://github.com/d99kris/heapusage
+==251328== 
+==251328== HEAP SUMMARY:
+==251328==     in use at exit: 0 bytes in 0 blocks
+==251328==   total heap usage: 7 allocs, 7 frees, 122 bytes allocated
+==251328==    peak heap usage: 110 bytes allocated
+==251328== 
+==251328== LEAK SUMMARY:
+==251328==    definitely lost: 0 bytes in 0 blocks
+==251328== 

@@ -5,13 +5,17 @@ set(COMMON_FLAGS "-funwind-tables -g -Wall -Wextra -Wpedantic -Wshadow -Wpointer
                   -Wno-missing-braces -Wswitch-default -Wcast-align -Wunreachable-code -Wundef \
                   -Wuninitialized")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 ${COMMON_FLAGS} -Wstrict-prototypes -Wmissing-prototypes")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 ${COMMON_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}")
+
+# C++ compiler flags
+set(CMAKE_CXX_STANDARD              11)
+set(CMAKE_CXX_STANDARD_REQUIRED     ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Library
 add_library(heapusage SHARED src/humain.c src/hulog.cpp)
 target_compile_features(heapusage PRIVATE cxx_variadic_templates)
 install(TARGETS heapusage LIBRARY DESTINATION lib)
-set_target_properties(heapusage PROPERTIES LINK_FLAGS "-fPIC")
 target_link_libraries(heapusage pthread dl)
 
 # Utility
@@ -26,6 +30,7 @@ enable_testing()
 
 add_executable(ex001 tests/ex001.c)
 add_executable(ex002 tests/ex002.c)
+add_executable(ex003 tests/ex003.cpp)
 
 configure_file(tests/test001 ${CMAKE_CURRENT_BINARY_DIR}/test001 COPYONLY)
 add_test(test001 "${PROJECT_BINARY_DIR}/test001")
@@ -33,3 +38,11 @@ add_test(test001 "${PROJECT_BINARY_DIR}/test001")
 configure_file(tests/test002 ${CMAKE_CURRENT_BINARY_DIR}/test002 COPYONLY)
 add_test(test002 "${PROJECT_BINARY_DIR}/test002")
 
+# Add test
+add_test(
+    NAME test003
+    COMMAND ${CMAKE_COMMAND}
+            -DEXECUTABLE=${CMAKE_BINARY_DIR}/$<TARGET_FILE_NAME:ex003>
+            -DEXPECTED_RESULT=${CMAKE_SOURCE_DIR}/tests/test003.txt
+            -P ${CMAKE_SOURCE_DIR}/tests/runtest.cmake
+)
