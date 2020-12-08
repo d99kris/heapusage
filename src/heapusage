@@ -36,9 +36,9 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v1.11"
+  echo "heapusage v1.12"
   echo ""
-  echo "Copyright (C) 2017-2018 Kristofer Berggren"
+  echo "Copyright (C) 2017-2020 Kristofer Berggren"
   echo ""
   echo "heapusage is distributed under the BSD 3-Clause license."
   echo ""
