@@ -68,9 +68,9 @@ static unsigned long long allocinfo_total_alloc_bytes = 0;
 static unsigned long long allocinfo_current_alloc_bytes = 0;
 static unsigned long long allocinfo_peak_alloc_bytes = 0;
 
-static std::map<void*, hu_allocinfo_t> allocations;
-static std::map<void*, std::string> symbol_cache;
-static std::map<void*, std::string> objfile_cache;
+static std::map<void*, hu_allocinfo_t>* allocations = nullptr;
+static std::map<void*, std::string>* symbol_cache = nullptr;
+static std::map<void*, std::string>* objfile_cache = nullptr;
 
 
 /* ----------- Local Functions ----------------------------------- */
@@ -114,6 +114,10 @@ void log_init()
   {
     fprintf(stderr, "heapusage error: no output file specified\n");
   }
+
+  allocations = new std::map<void*, hu_allocinfo_t>();
+  symbol_cache = new std::map<void*, std::string>();
+  objfile_cache = new std::map<void*, std::string>();
 }
 
 void log_enable(int flag)
@@ -161,8 +165,8 @@ bool log_is_valid_callstack(int callstack_depth, void * const callstack[], bool 
   {
     void *addr = callstack[i];
 
-    auto it = objfile_cache.find(addr);
-    if (it != objfile_cache.end())
+    auto it = objfile_cache->find(addr);
+    if (it != objfile_cache->end())
     {
       objfile = it->second;
     }
@@ -175,7 +179,7 @@ bool log_is_valid_callstack(int callstack_depth, void * const callstack[], bool 
         if (fname)
         {
           objfile = std::string(basename(fname));
-          objfile_cache[addr] = objfile;
+          (*objfile_cache)[addr] = objfile;
           free(fname);
         }
       }
@@ -225,7 +229,7 @@ void log_event(int event, void *ptr, size_t size)
         allocinfo.ptr = ptr;
         allocinfo.callstack_depth = backtrace(allocinfo.callstack, MAX_CALL_STACK);
         allocinfo.count = 1;
-        allocations[ptr] = allocinfo;
+        (*allocations)[ptr] = allocinfo;
         
         allocinfo_total_allocs += 1;
         allocinfo_total_alloc_bytes += size;
@@ -238,12 +242,12 @@ void log_event(int event, void *ptr, size_t size)
       }
       else if (event == EVENT_FREE)
       {
-        std::map<void*, hu_allocinfo_t>::iterator allocation = allocations.find(ptr);
-        if (allocation != allocations.end())
+        std::map<void*, hu_allocinfo_t>::iterator allocation = allocations->find(ptr);
+        if (allocation != allocations->end())
         {
           allocinfo_current_alloc_bytes -= allocation->second.size;
 
-          allocations.erase(ptr);
+          allocations->erase(ptr);
         }
         else if (hu_log_free)
         {
@@ -295,7 +299,7 @@ void log_summary()
 
   /* Group results by callstack */
   static std::map<std::vector<void*>, hu_allocinfo_t> allocations_by_callstack;
-  for (auto it = allocations.begin(); it != allocations.end(); ++it)
+  for (auto it = allocations->begin(); it != allocations->end(); ++it)
   {
     std::vector<void*> callstack;
     callstack.assign(it->second.callstack, it->second.callstack + it->second.callstack_depth);
@@ -359,8 +363,8 @@ void log_summary()
 static std::string addr_to_symbol(void *addr)
 {
   std::string symbol;
-  auto it = symbol_cache.find(addr);
-  if (it != symbol_cache.end())
+  auto it = symbol_cache->find(addr);
+  if (it != symbol_cache->end())
   {
     symbol = it->second;
   }
@@ -396,7 +400,7 @@ static std::string addr_to_symbol(void *addr)
       }
     }
 
-    symbol_cache[addr] = symbol;
+    (*symbol_cache)[addr] = symbol;
   }
 
   return symbol;
