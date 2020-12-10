@@ -70,12 +70,12 @@ if [[ "${DEPS}" == "1" ]]; then
   if [ "${OS}" == "Linux" ]; then
     DISTRO="$(lsb_release -i | awk -F':\t' '{print $2}')"
     if [[ "${DISTRO}" == "Ubuntu" ]]; then
-      sudo apt -y install git cmake build-essential help2man || exiterr "deps failed (linux), exiting."
+      true || exiterr "deps failed (linux), exiting."
     else
       exiterr "deps failed (unsupported linux distro ${DISTRO}), exiting."
     fi
   elif [ "${OS}" == "Darwin" ]; then
-    which help2man >/dev/null || brew install help2man || exiterr "deps failed (mac), exiting."
+    true || exiterr "deps failed (mac), exiting."
   else
     exiterr "deps failed (unsupported os ${OS}), exiting."
   fi
@@ -93,7 +93,9 @@ fi
 
 # doc
 if [[ "${DOC}" == "1" ]]; then
-  cd src && help2man -n "find memory leaks in applications" -N -o heapusage.1 ./heapusage && cd .. || exiterr "doc failed, exiting."
+  if [[ -x "$(command -v help2man)" ]]; then
+    cd src && help2man -n "find memory leaks in applications" -N -o heapusage.1 ./heapusage && cd .. || exiterr "doc failed, exiting."
+  fi
 fi
 
 # install
