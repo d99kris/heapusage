@@ -5,18 +5,20 @@ Heapusage
 |-----------|---------|
 | [![Linux](https://github.com/d99kris/heapusage/workflows/Linux/badge.svg)](https://github.com/d99kris/heapusage/actions?query=workflow%3ALinux) | [![macOS](https://github.com/d99kris/heapusage/workflows/macOS/badge.svg)](https://github.com/d99kris/heapusage/actions?query=workflow%3AmacOS) |
 
-Heapusage is a light-weight tool for finding memory leaks in Linux and macOS applications.
-It provides a small but important subset of Valgrind's memcheck functionality, and can be
-a useful alternative to it for debugging memory leaks in certain scenarios such as:
+Heapusage is a light-weight tool for finding memory leaks in Linux and macOS
+applications. It provides a small but important subset of Valgrind's memcheck
+functionality, and can be a useful alternative to it for debugging memory
+leaks in certain scenarios such as:
 - Large complex applications which cannot be run at Valgrind slowdown speed
 - Embedded systems with CPU architectures not supported by Valgrind
 
-Like Valgrind, it is recommended to run Heapusage on a debug build of the application to
-be analyzed.
+Like Valgrind, it is recommended to run Heapusage on a debug build of the
+application to be analyzed.
 
-While Heapusage has less performance impact than Valgrind, its analysis is less precise. It
-may report leaks originating from system libraries (e.g. libc functions like `print()`) that
-might be free'd when the system library is being cleaned up.
+While Heapusage has less performance impact than Valgrind, its analysis is
+less precise. It may report leaks originating from system libraries (e.g.
+libc functions like `print()`) that might be free'd when the system library is
+being cleaned up.
 
 
 Example Usage
@@ -48,14 +50,15 @@ Example Usage
 Supported Platforms
 ===================
 Heapusage is primarily developed and tested on Linux, but basic
-functionality should work in macOS / OS X as well. Current version has been tested on:
-- OS X El Capitan 10.11
-- Ubuntu 16.04 LTS
-- (Raspbian / Raspberry Pi 3 - based on fix for [issue #1](https://github.com/d99kris/heapusage/issues/1))
+functionality should work in macOS / OS X as well. Current version has been
+tested on:
+- macOS Big Sur 11.0
+- Ubuntu 20.04 LTS
 
-Limitation: On macOS / OS X this tool relies on code injection using DYLD_INSERT_LIBRARIES,
-which generally does not work with third-party applications in a standard system. Using it on
-(your own) applications built from source should work fine though.
+Limitation: On macOS this tool relies on code injection using
+DYLD_INSERT_LIBRARIES, which generally does not work with third-party
+applications in a standard system. Using it on (your own) applications built
+from source should work fine though.
 
 Installation
 ============
@@ -137,8 +140,8 @@ Example output:
     ==22648==    definitely lost: 12221 bytes in 4 blocks
     ==22648== 
 
-The corresponding file and line number of the stacktrace addresses can be determined
-using addr2line on Linux (the equivalent tool for macOS is atos):
+The corresponding file and line number of the stacktrace addresses can be
+determined using addr2line on Linux (the equivalent tool for macOS is atos):
 
     $ addr2line -f -e ./ex001 0x000000000040080d
     main
@@ -146,8 +149,9 @@ using addr2line on Linux (the equivalent tool for macOS is atos):
 
 Technical Details
 =================
-Heapusage intercepts calls to malloc/free/etc and logs each memory allocation and free. At
-process termination it outputs logging of all allocations not free'd.
+Heapusage intercepts calls to malloc/free/etc and logs each memory allocation
+and free. At process termination it outputs logging of all allocations not
+free'd.
 
 Alternatives
 ============
@@ -162,4 +166,4 @@ Heapusage is distributed under the BSD 3-Clause license. See LICENSE file.
 
 Keywords
 ========
-linux, macos, os x, heap usage, finding memory leaks, alternative to valgrind.
+linux, macos, heap usage, finding memory leaks, alternative to valgrind.
