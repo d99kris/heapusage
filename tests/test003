@@ -35,8 +35,8 @@ if [ "${LINE}" != "${EXPT}" ]; then
 fi
 
 # Check result - leak summary
-LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | grep "definitely lost")
-EXPT="    definitely lost: 24 bytes in 1 blocks"
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | grep "definitely lost" | awk -F' in ' '{print $2}')
+EXPT="1 blocks"
 if [ "${LINE}" != "${EXPT}" ]; then
   echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
   RV=1
