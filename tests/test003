@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Environment
+RV=0
+TMPDIR=$(mktemp -d)
+
+# Run application
+./heapusage -f -o ${TMPDIR}/out.txt ./ex003 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
+
+# Expected out.txt:
+# ==16158== Heapusage - https://github.com/d99kris/heapusage
+# ==16158== 
+# ==16158== HEAP SUMMARY:
+# ==16158==     in use at exit: 24 bytes in 1 blocks
+# ==16158==   total heap usage: 7 allocs, 6 frees, 106 bytes allocated
+# ==16158==    peak heap usage: 94 bytes allocated
+# ==16158== 
+# ==16158== 24 bytes in 1 block(s) are lost, originally allocated at:
+# ==16158==    at 0x0000000102fa9d5b: malloc_wrap + 43
+# ==16158==    at 0x00007fff202f8daa: operator new(unsigned long) + 26
+# ==16158==    at 0x0000000102f95f3e: main + 414
+# ==16158==    at 0x00007fff2034d631: start + 1
+# ==16158==    at 0x0000000000000001: 
+# ==16158== 
+# ==16158== LEAK SUMMARY:
+# ==16158==    definitely lost: 24 bytes in 1 blocks
+# ==16158== 
+
+# Check result - header
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -1 | tail -1)
+EXPT=" Heapusage - https://github.com/d99kris/heapusage"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check result - leak summary
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | grep "definitely lost" | awk -F' in ' '{print $2}')
+EXPT="1 blocks"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Cleanup
+rm -rf ${TMPDIR}
+
+# Exit
+exit ${RV}
+
