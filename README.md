@@ -5,8 +5,8 @@ Heapusage
 |-----------|---------|
 | [![Linux](https://github.com/d99kris/heapusage/workflows/Linux/badge.svg)](https://github.com/d99kris/heapusage/actions?query=workflow%3ALinux) | [![macOS](https://github.com/d99kris/heapusage/workflows/macOS/badge.svg)](https://github.com/d99kris/heapusage/actions?query=workflow%3AmacOS) |
 
-Heapusage is a light-weight tool for finding memory leaks in Linux and macOS
-applications. It provides a small but important subset of Valgrind's memcheck
+Heapusage is a light-weight tool for finding heap memory errors in Linux and
+macOS applications. It provides a small subset of Valgrind's memcheck
 functionality, and can be a useful alternative to it for debugging memory
 leaks in certain scenarios such as:
 - Large complex applications which cannot be run at Valgrind slowdown speed
@@ -17,41 +17,40 @@ application to be analyzed.
 
 While Heapusage has less performance impact than Valgrind, its analysis is
 less precise. It may report leaks originating from system libraries (e.g.
-libc functions like `print()`) that might be free'd when the system library is
-being cleaned up.
-
+libc functions like `printf()`) that might be free'd when the system library
+is being cleaned up.
 
 Example Usage
 =============
 
     $ heapusage ./ex001
-    ==22648== Heapusage - https://github.com/d99kris/heapusage
-    ==22648== 
-    ==22648== HEAP SUMMARY:
-    ==22648==     in use at exit: 12221 bytes in 4 blocks
-    ==22648==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
-    ==22648== 
-    ==22648== 6666 bytes in 3 block(s) are lost, originally allocated at:
-    ==22648==    at 0x00007fdca672199d: malloc + 49
-    ==22648==    at 0x000000000040080d: main + 55
-    ==22648==    at 0x00007fdca6376830: __libc_start_main + 240
-    ==22648==    at 0x0000000000400709: _start + 41
-    ==22648== 
-    ==22648== 5555 bytes in 1 block(s) are lost, originally allocated at:
-    ==22648==    at 0x00007fdca672199d: malloc + 49
-    ==22648==    at 0x00000000004007e8: main + 18
-    ==22648==    at 0x00007fdca6376830: __libc_start_main + 240
-    ==22648==    at 0x0000000000400709: _start + 41
-    ==22648== 
-    ==22648== LEAK SUMMARY:
-    ==22648==    definitely lost: 12221 bytes in 4 blocks
-    ==22648== 
+    ==2933== Heapusage - https://github.com/d99kris/heapusage
+    ==2933== 
+    ==2933== HEAP SUMMARY:
+    ==2933==     in use at exit: 12221 bytes in 4 blocks
+    ==2933==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
+    ==2933==    peak heap usage: 13332 bytes allocated
+    ==2933== 
+    ==2933== 6666 bytes in 3 block(s) are lost, originally allocated at:
+    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
+    ==2933==    at 0x00005611e856c1a4: main (ex001.c:29)
+    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
+    ==2933==    at 0x00005611e856c0ae: _start
+    ==2933== 
+    ==2933== 5555 bytes in 1 block(s) are lost, originally allocated at:
+    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
+    ==2933==    at 0x00005611e856c17f: main (ex001.c:19)
+    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
+    ==2933==    at 0x00005611e856c0ae: _start
+    ==2933== 
+    ==2933== LEAK SUMMARY:
+    ==2933==    definitely lost: 12221 bytes in 4 blocks
+    ==2933== 
 
 Supported Platforms
 ===================
 Heapusage is primarily developed and tested on Linux, but basic
-functionality should work in macOS / OS X as well. Current version has been
-tested on:
+functionality should work in macOS as well. Current version has been tested on:
 - macOS Big Sur 11.0
 - Ubuntu 20.04 LTS
 
@@ -66,11 +65,15 @@ Pre-requisites (Ubuntu):
 
     sudo apt install git cmake build-essential
 
+Optional pre-requisite for source filename/line-number in callstacks (Ubuntu):
+
+    sudo apt install binutils-dev
+
 Download the source code:
 
     git clone https://github.com/d99kris/heapusage && cd heapusage
 
-Generate Makefile and build:
+Build:
 
     mkdir -p build && cd build && cmake .. && make -s
 
@@ -80,18 +83,15 @@ Optionally install in system:
 
 Usage
 =====
-
 General usage syntax:
 
-    heapusage [-d] [-f] [-m minsize] [-n] [-o path] PROG [ARGS..]
+    heapusage [-d] [-m minsize] [-n] [-o path] [-t tools] PROG [ARGS..]
     heapusage --help
     heapusage --version
 
 Options:
 
     -d     debug mode, running program through debugger
-
-    -f     check for invalid free's (experimental)
 
     -m <minsize>
            minimum leak in bytes for detailed reporting
@@ -100,6 +100,9 @@ Options:
 
     -o <path>
            write output to specified file path, instead of stderr
+
+    -t <tools>
+           analysis tools to use (default "all")
 
     PROG   program to run and analyze
 
@@ -110,53 +113,89 @@ Options:
     --version
            output version information and exit
 
-Example running heapusage with test program 'ex001':
+Supported tools (for option -t):
+    all    enables all supported tools below
 
-    heapusage ./ex001
+    double-free
+           detect free'ing of buffers already free'd
+
+    leak   detect memory allocations never free'd
+
+    overflow
+           detect buffer overflows, i.e. access beyond allocated memory
+
+    use-after-free
+           detect access to free'd memory buffers
+
+Examples:
+    heapusage -t leak,overflow -m 2048 ./ex001
+           analyze heap allocations of minimum 2048 bytes for leaks and overflows.
+
+    heapusage -t all -m 0 ./ex002
+           analyze heap allocations of any size with all tools.
 
 Output Format
 =============
 Example output:
 
-    ==22648== Heapusage - https://github.com/d99kris/heapusage
-    ==22648== 
-    ==22648== HEAP SUMMARY:
-    ==22648==     in use at exit: 12221 bytes in 4 blocks
-    ==22648==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
-    ==22648== 
-    ==22648== 6666 bytes in 3 block(s) are lost, originally allocated at:
-    ==22648==    at 0x00007fdca672199d: malloc + 49
-    ==22648==    at 0x000000000040080d: main + 55
-    ==22648==    at 0x00007fdca6376830: __libc_start_main + 240
-    ==22648==    at 0x0000000000400709: _start + 41
-    ==22648== 
-    ==22648== 5555 bytes in 1 block(s) are lost, originally allocated at:
-    ==22648==    at 0x00007fdca672199d: malloc + 49
-    ==22648==    at 0x00000000004007e8: main + 18
-    ==22648==    at 0x00007fdca6376830: __libc_start_main + 240
-    ==22648==    at 0x0000000000400709: _start + 41
-    ==22648== 
-    ==22648== LEAK SUMMARY:
-    ==22648==    definitely lost: 12221 bytes in 4 blocks
-    ==22648== 
+    ==2933== Heapusage - https://github.com/d99kris/heapusage
+    ==2933== 
+    ==2933== HEAP SUMMARY:
+    ==2933==     in use at exit: 12221 bytes in 4 blocks
+    ==2933==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
+    ==2933==    peak heap usage: 13332 bytes allocated
+    ==2933== 
+    ==2933== 6666 bytes in 3 block(s) are lost, originally allocated at:
+    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
+    ==2933==    at 0x00005611e856c1a4: main (ex001.c:29)
+    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
+    ==2933==    at 0x00005611e856c0ae: _start
+    ==2933== 
+    ==2933== 5555 bytes in 1 block(s) are lost, originally allocated at:
+    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
+    ==2933==    at 0x00005611e856c17f: main (ex001.c:19)
+    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
+    ==2933==    at 0x00005611e856c0ae: _start
+    ==2933== 
+    ==2933== LEAK SUMMARY:
+    ==2933==    definitely lost: 12221 bytes in 4 blocks
+    ==2933== 
 
-The corresponding file and line number of the stacktrace addresses can be
-determined using addr2line on Linux (the equivalent tool for macOS is atos):
-
-    $ addr2line -f -e ./ex001 0x000000000040080d
-    main
-    tests/ex001.c:29
+Source code filename and line numbers are only supported on Linux, when package
+binutils-dev is available. On macOS one can use atos to determine source code
+details.
 
 Technical Details
 =================
-Heapusage intercepts calls to malloc/free/etc and logs each memory allocation
-and free. At process termination it outputs logging of all allocations not
-free'd.
+Heapusage intercepts calls to malloc/free/calloc/realloc and logs each memory
+allocation and free. For overflow and use-after-free it uses protected memory
+pages using `mprotect()` to detect writing outside valid allocations.
+
+Limitations
+===========
+Heapusage does currently not intercept calls to:
+- aligned_alloc
+- malloc_usable_size
+- memalign
+- posix_memalign
+- pvalloc
+- valloc
+
+Third-party Libraries
+---------------------
+Heapusage is implemented in C++. Its source tree includes the source code of the
+following third-party libraries:
+
+- [backward-cpp](https://github.com/bombela/backward-cpp) -
+  Copyright 2013 Google Inc - [MIT License](/ext/backward-cpp/LICENSE.txt)
 
 Alternatives
 ============
-There are many memory leak checkers available for Linux and macOS, for example:
-- LeakSanitizer
+There are many heap memory debuggers available for Linux and macOS, for
+example:
+
+- Address Sanitizer / Leak Sanitizer
+- Electric Fence
 - Mtrace
 - Valgrind
 

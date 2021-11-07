@@ -1,12 +1,16 @@
 /*
  * hulog.h
  *
- * Copyright (C) 2017 Kristofer Berggren
+ * Copyright (C) 2017-2021 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
  *
  */
+
+/* ----------- Includes ------------------------------------------ */
+#include <signal.h>
+
 
 /* ----------- Defines ------------------------------------------- */
 #define EVENT_MALLOC   1
@@ -14,16 +18,11 @@
 
 
 /* ----------- Global Function Prototypes ------------------------ */
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void log_init(void);
+void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool useafterfree,
+              bool leak);
 void log_enable(int flag);
-void log_event(int event, void *ptr, size_t size);
-void log_summary(void);
-
-#ifdef __cplusplus
-}
-#endif
-
+void log_event(int event, void* ptr, size_t size);
+void log_invalid_access(void* ptr);
+void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/);
+void log_summary();
+void hu_log_remove_freed_allocation(void* ptr);

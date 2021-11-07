@@ -26,7 +26,26 @@
 #include <string>
 #include <vector>
 
+#ifdef HAS_BFD
+/* Silence warnings */
+#define BACKWARD_HAS_LIBUNWIND 0
+#define BACKWARD_HAS_UNWIND 0 
+#define BACKWARD_HAS_BACKTRACE 1
+#define BACKWARD_HAS_BACKTRACE_SYMBOL 1
+#define BACKWARD_HAS_DW 0
+#define BACKWARD_HAS_DWARF 0
+#if defined(__APPLE__)
+#define _XOPEN_SOURCE 0
+#define _POSIX_C_SOURCE 0
+#endif
+
+/* Backward cpp with bfd / binutils */
+#define BACKWARD_HAS_BFD 1
+#include "backward.hpp"
+#endif
+
 #include "hulog.h"
+#include "humain.h"
 
 
 /* ----------- Defines ------------------------------------------- */
@@ -37,9 +56,11 @@
 typedef struct hu_allocinfo_s
 {
   void *ptr;
-  ssize_t size;
+  size_t size;
   void *callstack[MAX_CALL_STACK];
   int callstack_depth;
+  void *free_callstack[MAX_CALL_STACK];
+  int free_callstack_depth;
   int count;
 } hu_allocinfo_t;
 
@@ -49,18 +70,12 @@ static pid_t pid = 0;
 static char *hu_log_file = NULL;
 static int hu_log_free = 0;
 static int hu_log_nosyms = 0;
-static ssize_t hu_log_minleak = 0;
+static size_t hu_log_minleak = 0;
+static bool hu_useafterfree = false;
+static bool hu_leak = false;
 
-static int callcount = 0;
+static long hu_page_size = 0;
 static int logging_enabled = 0;
-static pthread_mutex_t callcount_lock = PTHREAD_MUTEX_INITIALIZER;
-#ifdef __APPLE__
-static pthread_mutex_t recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
-#elif __linux__
-static pthread_mutex_t recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-#else
-#warning "Unsupported platform"
-#endif
 
 static unsigned long long allocinfo_total_frees = 0;
 static unsigned long long allocinfo_total_allocs = 0;
@@ -69,6 +84,7 @@ static unsigned long long allocinfo_current_alloc_bytes = 0;
 static unsigned long long allocinfo_peak_alloc_bytes = 0;
 
 static std::map<void*, hu_allocinfo_t>* allocations = nullptr;
+static std::map<void*, hu_allocinfo_t>* freed_allocations = nullptr;
 static std::map<void*, std::string>* symbol_cache = nullptr;
 static std::map<void*, std::string>* objfile_cache = nullptr;
 
@@ -86,14 +102,20 @@ static std::string addr_to_symbol(void *addr);
 
 
 /* ----------- Global Functions ---------------------------------- */
-void log_init()
+void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool useafterfree,
+              bool leak)
 {
-  /* Get runtime info */
-  hu_log_file = getenv("HU_FILE");
-  hu_log_free = ((getenv("HU_FREE") != NULL) && (strcmp(getenv("HU_FREE"), "1") == 0));
-  hu_log_nosyms = ((getenv("HU_NOSYMS") != NULL) && (strcmp(getenv("HU_NOSYMS"), "1") == 0));
-  hu_log_minleak = getenv("HU_MINLEAK") ? strtoll(getenv("HU_MINLEAK"), NULL, 10) : 0;
+  /* Config */
+  hu_log_file = file;
+  hu_log_free = doublefree;
+  hu_log_nosyms = nosyms;
+  hu_log_minleak = minsize;
+  hu_useafterfree = useafterfree;
+  hu_leak = leak;
+
+  /* Get runtime info */  
   pid = getpid();
+  hu_page_size = sysconf(_SC_PAGE_SIZE);
 
   /* Initial log output */
   if (hu_log_file)
@@ -116,6 +138,7 @@ void log_init()
   }
 
   allocations = new std::map<void*, hu_allocinfo_t>();
+  freed_allocations = new std::map<void*, hu_allocinfo_t>();
   symbol_cache = new std::map<void*, std::string>();
   objfile_cache = new std::map<void*, std::string>();
 }
@@ -207,22 +230,14 @@ void log_event(int event, void *ptr, size_t size)
 {
   if (logging_enabled)
   {
-    int in_recursion = 0;
-    pthread_mutex_lock(&recursive_lock);
-    pthread_mutex_lock(&callcount_lock);
-    if (callcount == 0)
+    if (event == EVENT_MALLOC)
     {
-      ++callcount;
-    }
-    else
-    {
-      in_recursion = 1;
-    }
-    pthread_mutex_unlock(&callcount_lock);
-
-    if (!in_recursion)
-    {
-      if (event == EVENT_MALLOC)
+      if (hu_log_free)
+      {
+        freed_allocations->erase(ptr);
+      }
+      
+      if (size >= hu_log_minleak)
       {
         hu_allocinfo_t allocinfo;
         allocinfo.size = size;
@@ -240,6 +255,7 @@ void log_event(int event, void *ptr, size_t size)
           allocinfo_peak_alloc_bytes = allocinfo_current_alloc_bytes;
         }
       }
+    }
       else if (event == EVENT_FREE)
       {
         std::map<void*, hu_allocinfo_t>::iterator allocation = allocations->find(ptr);
@@ -247,24 +263,46 @@ void log_event(int event, void *ptr, size_t size)
         {
           allocinfo_current_alloc_bytes -= allocation->second.size;
 
+          if (hu_useafterfree || hu_log_free)
+          {
+            allocation->second.free_callstack_depth =
+              backtrace(allocation->second.free_callstack, MAX_CALL_STACK);
+            freed_allocations->insert(*allocation);
+          }
+          
           allocations->erase(ptr);
         }
         else if (hu_log_free)
         {
-          void *callstack[MAX_CALL_STACK];
-          int callstack_depth = backtrace(callstack, MAX_CALL_STACK);
-          if (log_is_valid_callstack(callstack_depth, callstack, false))
+          allocation = freed_allocations->find(ptr);
+          if (allocation != freed_allocations->end())
           {
-            FILE *f = fopen(hu_log_file, "a");
-            if (f)
+            void *callstack[MAX_CALL_STACK];
+            int callstack_depth = backtrace(callstack, MAX_CALL_STACK);
+            if (log_is_valid_callstack(callstack_depth, callstack, false))
             {
-              fprintf(f, "==%d== Invalid deallocation at:\n", pid);
+              FILE *f = fopen(hu_log_file, "a");
+              if (f)
+              {
+                fprintf(f, "==%d== Invalid deallocation at:\n", pid);
 
-              log_print_callstack(f, callstack_depth, callstack);
+                log_print_callstack(f, callstack_depth, callstack);
 
-              fprintf(f, "==%d== \n", pid);
+                fprintf(f, "==%d==  Address %p is a block of size %ld free'd at:\n",
+                        pid, ptr, allocation->second.size);
+          
+                log_print_callstack(f, allocation->second.free_callstack_depth,
+                                    allocation->second.free_callstack);
 
-              fclose(f);
+                fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
+          
+                log_print_callstack(f, allocation->second.callstack_depth,
+                                    allocation->second.callstack);
+
+                fprintf(f, "==%d== \n", pid);
+
+                fclose(f);
+              }
             }
           }
         }
@@ -272,13 +310,93 @@ void log_event(int event, void *ptr, size_t size)
         allocinfo_total_frees += 1;
       }
 
-      pthread_mutex_lock(&callcount_lock);
-      --callcount;
-      pthread_mutex_unlock(&callcount_lock);
-    }
-
-    pthread_mutex_unlock(&recursive_lock);
   }
+}
+
+void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
+{
+  if ((sig != SIGSEGV) && (sig != SIGBUS)) return;
+
+  if (si->si_code != SEGV_ACCERR) return;
+  
+  hu_set_bypass(true);
+
+  void* ptr = si->si_addr;  
+  void *callstack[MAX_CALL_STACK];
+  int callstack_depth = backtrace(callstack, MAX_CALL_STACK);
+  if (log_is_valid_callstack(callstack_depth, callstack, false))
+  {
+    FILE *f = fopen(hu_log_file, "a");
+    if (f)
+    {
+      fprintf(f, "==%d== Invalid memory access at:\n", pid);
+
+      log_print_callstack(f, callstack_depth, callstack);
+
+      bool found = false;
+      std::map<void*, hu_allocinfo_t>::iterator allocation;
+      allocation = allocations->lower_bound((char*)ptr + 1);
+      if (allocation != allocations->begin())
+      {
+        --allocation;
+        
+        if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
+            (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+        {
+          found = true;
+          size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
+
+          fprintf(f, "==%d==  Address %p is %ld bytes after a block of size %ld alloc'd at:\n",
+                  pid, ptr, offset, allocation->second.size);
+          
+          log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
+        }
+      }
+
+      allocation = freed_allocations->lower_bound((char*)ptr + 1);
+      if (!found && (allocation != freed_allocations->begin()))
+      {
+        --allocation;
+        
+        if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
+            (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+        {
+          found = true;
+          size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
+
+          fprintf(f, "==%d==  Address %p is %ld bytes after a block of size %ld free'd at:\n",
+                  pid, ptr, offset, allocation->second.size);
+          
+          log_print_callstack(f, allocation->second.free_callstack_depth,
+                              allocation->second.free_callstack);
+        }
+        else if ((ptr >= ((char*)allocation->second.ptr)) &&
+                 (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+        {
+          found = true;
+          size_t offset = (char*)ptr - ((char*)allocation->second.ptr);
+
+          fprintf(f, "==%d==  Address %p is %ld bytes inside a block of size %ld free'd at:\n",
+                  pid, ptr, offset, allocation->second.size);
+          
+          log_print_callstack(f, allocation->second.free_callstack_depth,
+                              allocation->second.free_callstack);
+        }        
+ 
+        fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
+
+        log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
+      }
+      
+      fprintf(f, "==%d== \n", pid);
+
+      fclose(f);
+    }
+  }
+
+  hu_set_bypass(false);
+  
+  exit(EXIT_FAILURE);
 }
 
 void log_summary()
@@ -337,15 +455,18 @@ void log_summary()
   fprintf(f, "==%d== \n", pid);
 
   /* Output leak details */
-  for (auto it = allocations_by_size.rbegin(); (it != allocations_by_size.rend()) && (it->size >= hu_log_minleak); ++it)
+  if (hu_leak)
   {
-    if (log_is_valid_callstack(it->callstack_depth, it->callstack, true))
+    for (auto it = allocations_by_size.rbegin(); (it != allocations_by_size.rend()) && (it->size >= hu_log_minleak); ++it)
     {
-      fprintf(f, "==%d== %zu bytes in %d block(s) are lost, originally allocated at:\n", pid, it->size, it->count);
+      if (log_is_valid_callstack(it->callstack_depth, it->callstack, true))
+      {
+        fprintf(f, "==%d== %zu bytes in %d block(s) are lost, originally allocated at:\n", pid, it->size, it->count);
 
-      log_print_callstack(f, it->callstack_depth, it->callstack);
+        log_print_callstack(f, it->callstack_depth, it->callstack);
     
-      fprintf(f, "==%d== \n", pid);
+        fprintf(f, "==%d== \n", pid);
+      }
     }
   }
   
@@ -356,6 +477,14 @@ void log_summary()
   fprintf(f, "==%d== \n", pid);
 
   fclose(f);
+}
+
+void hu_log_remove_freed_allocation(void* ptr)
+{
+  if (!hu_log_free)
+  {
+    freed_allocations->erase(ptr);
+  }
 }
 
 
@@ -370,6 +499,23 @@ static std::string addr_to_symbol(void *addr)
   }
   else
   {
+#ifdef HAS_BFD
+    backward::TraceResolver trace_resolver;
+    trace_resolver.load_addresses(&addr, 1);
+    backward::Trace trace(addr, 0);
+    backward::ResolvedTrace rtrace = trace_resolver.resolve(trace);
+    if (!rtrace.source.filename.empty())
+    {
+      const std::string& path = rtrace.source.filename;
+      std::string filename = path.substr(path.find_last_of("/\\") + 1);
+      symbol = rtrace.object_function +
+        " (" + filename + ":" + std::to_string(rtrace.source.line) + ")";
+    }
+    else
+    {
+      symbol = rtrace.object_function;
+    }
+#else
     Dl_info dlinfo;
     if (dladdr(addr, &dlinfo) && dlinfo.dli_sname)
     {
@@ -399,6 +545,7 @@ static std::string addr_to_symbol(void *addr)
         symbol += std::string(std::to_string((char*)addr - (char*)dlinfo.dli_saddr));
       }
     }
+#endif
 
     (*symbol_cache)[addr] = symbol;
   }

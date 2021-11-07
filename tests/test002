@@ -1,21 +1,39 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Environment
 RV=0
 TMPDIR=$(mktemp -d)
 
 # Run application
-./heapusage -f -o ${TMPDIR}/out.txt ./ex002 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
+./heapusage -m 0 -t all -o ${TMPDIR}/out.txt ./ex002 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
 
 # Expected out.txt:
-# ==9662== Heapusage - https://github.com/d99kris/heapusage
-# ==9662== 
-# ==9662== Invalid deallocation at:
-# ==9662==    at 0x00007f01c71656af: free + 34
-# ==9662==    at 0x0000555c7b6bf896: main + 60
-# ==9662==    at 0x00007f01c6d82b97: __libc_start_main + 231
-# ==9662==    at 0x0000555c7b6bf77a: _start + 42
-# ==9662== 
+# ==2791== Heapusage - https://github.com/d99kris/heapusage
+# ==2791== 
+# ==2791== Invalid deallocation at:
+# ==2791==    at 0x00007ffa475148c8: free + 166
+# ==2791==    at 0x0000558f9056b1a9: main + 64
+# ==2791==    at 0x00007ffa4730c0b3: __libc_start_main + 243
+# ==2791==    at 0x0000558f9056b0ae: _start + 46
+# ==2791==  Address 0x558f91bc8a48 is a block of size 5555 free'd at:
+# ==2791==    at 0x00007ffa475148c8: free + 166
+# ==2791==    at 0x0000558f9056b19d: main + 52
+# ==2791==    at 0x00007ffa4730c0b3: __libc_start_main + 243
+# ==2791==    at 0x0000558f9056b0ae: _start + 46
+# ==2791==  Block was alloc'd at:
+# ==2791==    at 0x00007ffa475147d4: malloc + 167
+# ==2791==    at 0x0000558f9056b17f: main + 22
+# ==2791==    at 0x00007ffa4730c0b3: __libc_start_main + 243
+# ==2791==    at 0x0000558f9056b0ae: _start + 46
+# ==2791== 
+# ==2791== HEAP SUMMARY:
+# ==2791==     in use at exit: 0 bytes in 0 blocks
+# ==2791==   total heap usage: 1 allocs, 2 frees, 5555 bytes allocated
+# ==2791==    peak heap usage: 5555 bytes allocated
+# ==2791== 
+# ==2791== LEAK SUMMARY:
+# ==2791==    definitely lost: 0 bytes in 0 blocks
+# ==2791== 
 
 # Check result - header
 LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -1 | tail -1)
@@ -34,7 +52,7 @@ if [ "${LINE}" != "${EXPT}" ]; then
 fi
 
 LINE=$(printf "%d\n" $(grep 'at:' ${TMPDIR}/out.txt | wc -l))
-EXPT="1"
+EXPT="3"
 if [ "${LINE}" != "${EXPT}" ]; then
   echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
   RV=1
