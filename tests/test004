@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+# Environment
+RV=0
+TMPDIR=$(mktemp -d)
+
+# Run application
+./heapusage -t all -m 0 -o ${TMPDIR}/out.txt ./ex004 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
+
+# ==41495== Heapusage - https://github.com/d99kris/heapusage
+# ==41495== 
+# ==41495== Invalid memory access at:
+# ==41495==    at 0x00007f9be67d200a: 
+# ==41495==    at 0x00007f9be65df210: 
+# ==41495==    at 0x00005581ca3f7194: main + 43
+# ==41495==    at 0x00007f9be65c00b3: __libc_start_main + 243
+# ==41495==    at 0x00005581ca3f70ae: _start + 46
+# ==41495==  Address 0x5581cadbb000 is 0 bytes after a block of size 8 alloc'd at:
+# ==41495==    at 0x00007f9be67c87d4: malloc + 167
+# ==41495==    at 0x00005581ca3f717f: main + 22
+# ==41495==    at 0x00007f9be65c00b3: __libc_start_main + 243
+# ==41495==    at 0x00005581ca3f70ae: _start + 46
+# ==41495== 
+# ==41495== HEAP SUMMARY:
+# ==41495==     in use at exit: 8 bytes in 1 blocks
+# ==41495==   total heap usage: 1 allocs, 0 frees, 8 bytes allocated
+# ==41495==    peak heap usage: 8 bytes allocated
+# ==41495== 
+# ==41495== 8 bytes in 1 block(s) are lost, originally allocated at:
+# ==41495==    at 0x00007f9be67c87d4: malloc + 167
+# ==41495==    at 0x00005581ca3f717f: main + 22
+# ==41495==    at 0x00007f9be65c00b3: __libc_start_main + 243
+# ==41495==    at 0x00005581ca3f70ae: _start + 46
+# ==41495== 
+# ==41495== LEAK SUMMARY:
+# ==41495==    definitely lost: 8 bytes in 1 blocks
+# ==41495== 
+
+# Check result - header
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -1 | tail -1)
+EXPT=" Heapusage - https://github.com/d99kris/heapusage"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check result - details
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -3 | tail -1)
+EXPT=" Invalid memory access at:"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+LINE=$(printf "%d\n" $(grep 'is 0 bytes after a block of size' ${TMPDIR}/out.txt | wc -l))
+EXPT="1"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Cleanup
+rm -rf ${TMPDIR}
+
+# Exit
+exit ${RV}
+

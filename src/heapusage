@@ -1,34 +1,44 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Copyright (C) 2017-2018 Kristofer Berggren
+# Copyright (C) 2017-2021 Kristofer Berggren
 # All rights reserved.
 #
 # heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
 
 showusage()
 {
-  echo "Heapusage is a light-weight tool for finding memory leaks in"
+  echo "Heapusage is a light-weight tool for finding heap memory errors in"
   echo "applications."
   echo ""
-  echo "Usage: heapusage [-d] [-f] [-m minsize] [-n] [-o path] PROG [ARGS..]"
+  echo "Usage: heapusage [-d] [-m minsize] [-n] [-o path] [-t tools] PROG [ARGS..]"
   echo "   or: heapusage --help"
   echo "   or: heapusage --version"
   echo ""
   echo "Options:"
   echo "   -d              debug mode, running program through debugger"
-  echo "   -f              check for invalid free's (experimental)"
-  echo "   -m <minsize>    minimum leak in bytes for detailed reporting"
+  echo "   -m <minsize>    min alloc size to enable analysis for (default 1024)"
   echo "   -n              no symbol lookup (faster)"
   echo "   -o <path>       write output to specified file path, instead of stderr"
+  echo "   -t <tools>      analysis tools to use (default \"all\")"
   echo "   PROG            program to run and analyze"
   echo "   [ARGS]          optional arguments to the program"
-  echo "   --help          display this help and exit"
-  echo "   --version       output version information and exit"
+  echo "   -h,--help       display this help and exit"
+  echo "   -v,--version    output version information and exit"
+  echo ""
+  echo "Supported tools (for option -t):"
+  echo "   all             enables all supported tools below"
+  echo "   double-free     detect free'ing of buffers already free'd"
+  echo "   leak            detect memory allocations never free'd"
+  echo "   overflow        detect buffer overflows, i.e. access beyond"
+  echo "                   allocated memory"
+  echo "   use-after-free  detect access to free'd memory buffers"
   echo ""
   echo "Examples:"
-  echo "heapusage ls"
+  echo "heapusage -t leak,overflow -m 2048 ./ex001"
+  echo "   analyze heap allocations of minimum 2048 bytes for leaks and overflows."
   echo ""
-  echo "executes the program 'ls' and measures its heap usage."
+  echo "heapusage -t all -m 0 ./ex002"
+  echo "   analyze heap allocations of any size with all tools."
   echo ""
   echo "Report bugs at https://github.com/d99kris/heapusage"
   echo ""
@@ -36,9 +46,9 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v1.13"
+  echo "heapusage v2.00"
   echo ""
-  echo "Copyright (C) 2017-2020 Kristofer Berggren"
+  echo "Copyright (C) 2017-2021 Kristofer Berggren"
   echo ""
   echo "heapusage is distributed under the BSD 3-Clause license."
   echo ""
@@ -46,24 +56,24 @@ showversion()
 }
 
 # Arguments - special cases
-if [ "${1}" == "--help" ] ; then
+if [[ "${1}" == "--help" ]] || [[ "${1}" == "-h" ]]; then
   showusage
   exit 0
-elif [ "${1}" == "--version" ] ; then
+elif [[ "${1}" == "--version" ]] || [[ "${1}" == "-v" ]] ; then
   showversion
   exit 0
-elif [ "${#}" == "0" ] ; then
+elif [[ "${#}" == "0" ]] ; then
   showusage
   exit 1
 fi
 
 # Arguments - regular options
 DEBUG="0"
-FREE="0"
-MINLEAK="0"
+MINSIZE="1024"
 NOSYMS="0"
 OUTFILE=""
-while getopts "?dfm:no:" OPT; do
+TOOLS="all"
+while getopts "?dfm:no:t:" OPT; do
   case "${OPT}" in
   \?)
     showusage
@@ -72,17 +82,17 @@ while getopts "?dfm:no:" OPT; do
   d)
     DEBUG="1"
     ;;
-  f)
-    FREE="1"
-    ;;
   m)
-    MINLEAK="${OPTARG}"
+    MINSIZE="${OPTARG}"
     ;;
   n)
     NOSYMS="1"
     ;;
   o)
     OUTFILE="${OPTARG}"
+    ;;
+  t)
+    TOOLS="${OPTARG}"
     ;;
   esac
 done
@@ -113,7 +123,7 @@ elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
   LIBNAME="libheapusage.so"
 else
   # Unsupported OS
-  echo "Unsupported OS"
+  echo "error: unsupported OS"
   exit 1
 fi
 
@@ -123,6 +133,44 @@ LIBPATHS=(
   "${DIR}/.libs/${LIBNAME}"
   "${DIR}/${LIBNAME}"
 )
+
+# Setup tools options
+DOUBLEFREE="0"
+LEAK="0"
+OVERFLOW="0"
+USEAFTERFREE="0"
+for TOOL in ${TOOLS//,/ }
+do
+  case "${TOOL}" in
+  all)
+    DOUBLEFREE="1"
+    LEAK="1"
+    OVERFLOW="1"
+    USEAFTERFREE="1"
+    ;;      
+  double-free)
+    DOUBLEFREE="1"
+    ;;
+  leak)
+    LEAK="1"
+    ;;
+  overflow)
+    OVERFLOW="1"
+    ;;
+  use-after-free)
+    USEAFTERFREE="1"
+    ;;
+  *)
+    echo "warning: ignoring unsupported tool \"${TOOL}\""
+    ;;
+  esac
+done
+
+# Bail out if no tool was selected
+if [[ "${DOUBLEFREE}${LEAK}${OVERFLOW}${USEAFTERFREE}" == "0000" ]]; then
+  echo "error: no tool enabled, aborting."
+  exit 1
+fi
 
 # Create temp dir
 TMP=$(mktemp -d)
@@ -146,9 +194,12 @@ while [ "${LIBPATHS[CNT]}" != "" ]; do
 
     # Run program
     if [ "${DEBUG}" == "0" ]; then
-      HU_FREE="${FREE}"                     \
+      HU_DOUBLEFREE="${DOUBLEFREE}"         \
+      HU_LEAK="${LEAK}"                     \
+      HU_OVERFLOW="${OVERFLOW}"             \
+      HU_USEAFTERFREE="${USEAFTERFREE}"     \
       HU_FILE="${TMPLOG}${OUTFILE}"         \
-      HU_MINLEAK="${MINLEAK}"               \
+      HU_MINSIZE="${MINSIZE}"               \
       HU_NOSYMS="${NOSYMS}"                 \
       LD_PRELOAD="${LIBPATH}"               \
       DYLD_INSERT_LIBRARIES="${LIBPATH}"    \
@@ -156,9 +207,12 @@ while [ "${LIBPATHS[CNT]}" != "" ]; do
       "${@:1}"
     else
       LLDBCMDPATH="${TMP}/lldb.cmd"
-      echo "env HU_FREE=\"${FREE}\""                    >  "${LLDBCMDPATH}"
+      echo "env HU_DOUBLEFREE=\"${DOUBLEFREE}\""        >  "${LLDBCMDPATH}"
+      echo "env HU_LEAK=\"${LEAK}\""                    >> "${LLDBCMDPATH}"
+      echo "env HU_OVERFLOW=\"${OVERFLOW}\""            >> "${LLDBCMDPATH}"
+      echo "env HU_USEAFTERFREE=\"${USEAFTERFREE}\""    >> "${LLDBCMDPATH}"
       echo "env HU_FILE=\"${TMPLOG}${OUTFILE}\""        >> "${LLDBCMDPATH}"
-      echo "env HU_MINLEAK=\"${MINLEAK}\""              >> "${LLDBCMDPATH}"
+      echo "env HU_MINSIZE=\"${MINSIZE}\""              >> "${LLDBCMDPATH}"
       echo "env HU_NOSYMS=\"${NOSYMS}\""                >> "${LLDBCMDPATH}"
       echo "env LD_PRELOAD=\"${LIBPATH}\""              >> "${LLDBCMDPATH}"
       echo "env DYLD_INSERT_LIBRARIES=\"${LIBPATH}\""   >> "${LLDBCMDPATH}"
