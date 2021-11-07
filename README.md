@@ -114,6 +114,7 @@ Options:
            output version information and exit
 
 Supported tools (for option -t):
+
     all    enables all supported tools below
 
     double-free
@@ -128,6 +129,7 @@ Supported tools (for option -t):
            detect access to free'd memory buffers
 
 Examples:
+
     heapusage -t leak,overflow -m 2048 ./ex001
            analyze heap allocations of minimum 2048 bytes for leaks and overflows.
 
