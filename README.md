@@ -94,7 +94,7 @@ Options:
     -d     debug mode, running program through debugger
 
     -m <minsize>
-           minimum leak in bytes for detailed reporting
+           min alloc size to enable analysis for (default 0)
 
     -n     no symbol lookup (faster)
 
@@ -102,7 +102,7 @@ Options:
            write output to specified file path, instead of stderr
 
     -t <tools>
-           analysis tools to use (default "all")
+           analysis tools to use (default "leak")
 
     PROG   program to run and analyze
 

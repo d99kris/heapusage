@@ -17,6 +17,10 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#if defined (__APPLE__)
+#include <malloc/malloc.h>
+#endif
+
 #include "hulog.h"
 #include "humain.h"
 #include "humalloc.h"
@@ -138,9 +142,9 @@ void hu_set_bypass(bool bypass)
 /* ----------- Linux Wrapper Functions --------------------------- */
 /* Extern declarations of glibc actual heap functions */
 extern "C" void *__libc_malloc(size_t size);
-extern "C" void __libc_free(void *ptr);
+extern "C" void __libc_free(void* ptr);
 extern "C" void *__libc_calloc(size_t nmemb, size_t size);
-extern "C" void *__libc_realloc(void *ptr, size_t size);
+extern "C" void *__libc_realloc(void* ptr, size_t size);
 
 extern "C"
 void *malloc(size_t size)
@@ -216,6 +220,7 @@ extern "C" void *malloc_wrap(size_t size);
 extern "C" void free_wrap(void* ptr);
 extern "C" void* calloc_wrap(size_t count, size_t size);
 extern "C" void* realloc_wrap(void *ptr, size_t size);
+extern "C" size_t malloc_size_wrap(const void* ptr);
 
 extern "C"
 void *malloc_wrap(size_t size)
@@ -282,6 +287,18 @@ void* realloc_wrap(void *ptr, size_t size)
   return newptr;
 }
 DYLD_INTERPOSE(realloc_wrap, realloc);
+
+extern "C"
+size_t malloc_size_wrap(const void* ptr)
+{
+  if (hu_bypass) return malloc_size(ptr);
+
+  hu_recursion_checker recursion_checker;
+  if (recursion_checker.is_recursive_call()) return malloc_size(ptr);
+
+  return hu_enable_humalloc ? hu_malloc_size(const_cast<void*>(ptr)) : malloc_size(ptr);
+}
+DYLD_INTERPOSE(malloc_size_wrap, malloc_size);
 
 
 #else

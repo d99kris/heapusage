@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <fstream>
 #include <mutex>
 #include <queue>
 #include <unordered_map>
@@ -20,6 +21,10 @@
 
 #include <signal.h>
 #include <unistd.h>
+
+#if defined (__APPLE__)
+#include <malloc/malloc.h>
+#endif
 
 #include <sys/mman.h>
 
@@ -33,6 +38,7 @@ static bool hu_malloc_inited = false;
 static bool hu_overflow = false;
 static bool hu_useafterfree = false;
 static size_t hu_minsize = 0;
+static size_t hu_size_multiple = 2 * sizeof(void*); // double word alignment
 
 /* Runtime */
 static long hu_page_size = 0;
@@ -65,11 +71,16 @@ static inline size_t hu_round_up(size_t num_to_round, size_t multiple)
   return (num_to_round + multiple - remainder);
 }
 
+static inline size_t hu_calc_user_size(size_t user_size)
+{
+  const size_t rounded_user_size = hu_round_up(user_size, hu_size_multiple);
+  return rounded_user_size;
+}
+
 static inline size_t hu_calc_sys_size(size_t user_size)
 {
-  const size_t rounded_user_size = hu_round_up(user_size, sizeof(void*)); // native word alignment
   const size_t padded_size =
-    hu_round_up(rounded_user_size, hu_page_size) + (hu_overflow ? hu_page_size : 0);
+    hu_round_up(user_size, hu_page_size) + (hu_overflow ? hu_page_size : 0);
   return padded_size;
 }
 
@@ -80,6 +91,42 @@ static inline bool hu_get_allocinfo(void* user_ptr, hu_alloc_info* alloc_info)
 
   *alloc_info = it->second;
   return true;
+}
+
+static int hu_mprotect(void* addr, size_t len, int prot)
+{
+#if defined(__linux__)
+  static uint64_t callcount = 0;
+  ++callcount;
+#endif
+
+  int rv = mprotect(addr, len, prot);
+  if (rv != 0)
+  {
+    fprintf(stderr, "heapusage error: mprotect(%p, %ld, %d) failed errno %d\n",
+            addr, len, prot, errno);
+
+#if defined(__linux__)
+    static const uint64_t max_map_count = []()
+    {
+      uint64_t val = 0;
+      std::ifstream("/proc/sys/vm/max_map_count") >> val;
+      return val;
+    }();
+
+    if (callcount > (max_map_count / 2))
+    {
+      fprintf(stderr,
+              "max_map_count=%ld mprotect_count=%ld, try increasing max_map_count, ex::\n",
+              max_map_count, callcount);
+      fprintf(stderr, "sudo sh -c \"echo %ld > /proc/sys/vm/max_map_count\"\n",
+              (2 * max_map_count));
+      exit(1);
+    }
+#endif
+  }
+
+  return rv;
 }
 
 
@@ -155,8 +202,11 @@ void* hu_malloc(size_t user_size)
     return malloc(user_size);
   }
 
+  /* Calculate rounded user size */
+  const size_t rounded_user_size = hu_calc_user_size(user_size);
+
   /* Calculate system memory needed */
-  const size_t sys_size = hu_calc_sys_size(user_size);
+  const size_t sys_size = hu_calc_sys_size(rounded_user_size);
 
   /* Allocate aligned at page size */
   void* sys_ptr = nullptr;
@@ -169,17 +219,13 @@ void* hu_malloc(size_t user_size)
   if (hu_overflow)
   {
     post_fence_ptr = (char*)sys_ptr + sys_size - hu_page_size;
-    if (mprotect(post_fence_ptr, hu_page_size, PROT_NONE) == -1)
-    {
-      fprintf(stderr, "heapusage error: mprotect failed post-fence %p\n", post_fence_ptr);
-    }
+    hu_mprotect(post_fence_ptr, hu_page_size, PROT_NONE);
   }
   
   /* Calculate user pointer */
   void* user_ptr = nullptr;
   if (hu_overflow && (post_fence_ptr != nullptr))
   {
-    const size_t rounded_user_size = hu_round_up(user_size, sizeof(void*)); // native word alignment
     user_ptr = (char*)post_fence_ptr - rounded_user_size;
   }
   else
@@ -231,10 +277,7 @@ void hu_free(void* user_ptr)
   if (hu_useafterfree)
   {
     /* Quarantine allocation if use-after-free detection is enabled */
-    if (mprotect(allocInfo.sys_ptr, allocInfo.sys_size, PROT_NONE) == -1)
-    {
-      fprintf(stderr, "heapusage error: mprotect failed all pages\n");
-    }
+    hu_mprotect(allocInfo.sys_ptr, allocInfo.sys_size, PROT_NONE);
     
     hu_quarantine_allocs->push(allocInfo);
     hu_quarantine_size += allocInfo.sys_size;
@@ -245,12 +288,7 @@ void hu_free(void* user_ptr)
       hu_alloc_info delete_alloc_info = hu_quarantine_allocs->front();
       hu_quarantine_allocs->pop();
 
-      if (mprotect(delete_alloc_info.sys_ptr, delete_alloc_info.sys_size,
-                   PROT_READ | PROT_WRITE) == -1)
-      {
-        fprintf(stderr, "heapusage error: mprotect release failed\n");
-      }
-
+      hu_mprotect(delete_alloc_info.sys_ptr, delete_alloc_info.sys_size, PROT_READ | PROT_WRITE);
       hu_quarantine_size -= delete_alloc_info.sys_size;    
       free(delete_alloc_info.sys_ptr);
       hu_log_remove_freed_allocation(delete_alloc_info.user_ptr);
@@ -259,11 +297,7 @@ void hu_free(void* user_ptr)
   else
   {
     /* Directly unprotect and release back to OS if use-after-free detection is disabled */
-    if (mprotect(allocInfo.sys_ptr, allocInfo.sys_size, PROT_READ | PROT_WRITE) == -1)
-    {
-      fprintf(stderr, "heapusage error: mprotect failed all pages\n");
-    }
-
+    hu_mprotect(allocInfo.sys_ptr, allocInfo.sys_size, PROT_READ | PROT_WRITE);
     free(allocInfo.sys_ptr);
   }
 }
@@ -325,5 +359,23 @@ void* hu_realloc(void *user_ptr, size_t user_size)
   else
   {
     return realloc(user_ptr, user_size);
+  }
+}
+
+size_t hu_malloc_size(void* user_ptr)
+{
+  hu_alloc_info allocInfo;
+  if (hu_malloc_inited && hu_get_allocinfo(user_ptr, &allocInfo))
+  {
+    const size_t rounded_user_size = hu_calc_user_size(allocInfo.user_size);
+    return rounded_user_size;
+  }
+  else
+  {
+#if defined (__APPLE__)
+    return malloc_size(user_ptr);
+#else
+    return 0;
+#endif
   }
 }

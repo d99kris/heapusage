@@ -16,3 +16,4 @@ void* hu_malloc(size_t user_size);
 void hu_free(void* ptr);
 void* hu_calloc(size_t count, size_t size);
 void* hu_realloc(void *ptr, size_t size);
+size_t hu_malloc_size(void* ptr);

@@ -16,10 +16,10 @@ showusage()
   echo ""
   echo "Options:"
   echo "   -d              debug mode, running program through debugger"
-  echo "   -m <minsize>    min alloc size to enable analysis for (default 1024)"
+  echo "   -m <minsize>    min alloc size to enable analysis for (default 0)"
   echo "   -n              no symbol lookup (faster)"
   echo "   -o <path>       write output to specified file path, instead of stderr"
-  echo "   -t <tools>      analysis tools to use (default \"all\")"
+  echo "   -t <tools>      analysis tools to use (default \"leak\")"
   echo "   PROG            program to run and analyze"
   echo "   [ARGS]          optional arguments to the program"
   echo "   -h,--help       display this help and exit"
@@ -46,7 +46,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.00"
+  echo "heapusage v2.01"
   echo ""
   echo "Copyright (C) 2017-2021 Kristofer Berggren"
   echo ""
@@ -69,10 +69,10 @@ fi
 
 # Arguments - regular options
 DEBUG="0"
-MINSIZE="1024"
+MINSIZE="0"
 NOSYMS="0"
 OUTFILE=""
-TOOLS="all"
+TOOLS="leak"
 while getopts "?dfm:no:t:" OPT; do
   case "${OPT}" in
   \?)

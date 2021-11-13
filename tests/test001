@@ -5,7 +5,7 @@ RV=0
 TMPDIR=$(mktemp -d)
 
 # Run application
-./heapusage -f ./ex001 > ${TMPDIR}/out.txt 2> ${TMPDIR}/err.txt
+./heapusage -m 1024 -f ./ex001 > ${TMPDIR}/out.txt 2> ${TMPDIR}/err.txt
 
 # Expected
 # ==4803== Heapusage - https://github.com/d99kris/heapusage
