@@ -26,23 +26,11 @@
 #include <string>
 #include <vector>
 
-#ifdef HAS_BFD
-/* Silence warnings */
-#define BACKWARD_HAS_LIBUNWIND 0
-#define BACKWARD_HAS_UNWIND 0 
-#define BACKWARD_HAS_BACKTRACE 1
-#define BACKWARD_HAS_BACKTRACE_SYMBOL 1
-#define BACKWARD_HAS_DW 0
-#define BACKWARD_HAS_DWARF 0
 #if defined(__APPLE__)
 #define _XOPEN_SOURCE 0
 #define _POSIX_C_SOURCE 0
 #endif
-
-/* Backward cpp with bfd / binutils */
-#define BACKWARD_HAS_BFD 1
 #include "backward.hpp"
-#endif
 
 #include "hulog.h"
 #include "humain.h"
@@ -499,7 +487,7 @@ static std::string addr_to_symbol(void *addr)
   }
   else
   {
-#ifdef HAS_BFD
+#if (BACKWARD_HAS_BFD == 1) || (BACKWARD_HAS_DW == 1) || (BACKWARD_HAS_DWARF == 1)
     backward::TraceResolver trace_resolver;
     trace_resolver.load_addresses(&addr, 1);
     backward::Trace trace(addr, 0);
