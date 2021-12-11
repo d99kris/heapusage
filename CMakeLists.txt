@@ -1,9 +1,9 @@
 # Project
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(heapusage VERSION 1.0 LANGUAGES C CXX)
-set(COMMON_FLAGS "-funwind-tables -g -Wall -Wextra -Wpedantic -Wshadow -Wpointer-arith -Wcast-qual \
-                  -Wno-missing-braces -Wswitch-default -Wcast-align -Wunreachable-code -Wundef \
-                  -Wuninitialized")
+set(COMMON_FLAGS "-funwind-tables -g -Wall -Wextra -Wpedantic -Wshadow -Wpointer-arith \
+                  -Wcast-qual -Wno-missing-braces -Wswitch-default -Wcast-align \
+                  -Wunreachable-code -Wuninitialized")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 ${COMMON_FLAGS} -Wstrict-prototypes \
                    -Wmissing-prototypes")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}")
@@ -13,22 +13,19 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Optional dependency - binutils / binutils-dev - for filename/line-numbers in callstacks
-include(FindPackageHandleStandardArgs)
-find_path(BFD_INCLUDE_PATH bfd.h PATH /usr/include /usr/local/include /usr/local/opt/*/include)
-find_library(BFD_LIBRARIES bfd PATH /lib /usr/lib /usr/local/lib /usr/local/opt/*/lib)
-find_package_handle_standard_args(BFD DEFAULT_MSG BFD_LIBRARIES BFD_INCLUDE_PATH)
-if(BFD_FOUND)
-  set(EXTRA_LIBRARIES "${BFD_LIBRARIES}")
-  include_directories("ext/backward-cpp" ${BFD_INCLUDE_DIR})
-  add_definitions(-DHAS_BFD)
-endif()
-
 # Library
 add_library(heapusage SHARED src/humain.cpp src/hulog.cpp src/humalloc.cpp)
 target_compile_features(heapusage PRIVATE cxx_variadic_templates)
 install(TARGETS heapusage LIBRARY DESTINATION lib)
-target_link_libraries(heapusage ${EXTRA_LIBRARIES} pthread dl)
+target_link_libraries(heapusage pthread dl)
+
+# Dependency backward-cpp providing more detailed stacktraces on Linux, when
+# either of the following is present (only ONE needed):
+#   libbfd    - sudo apt install binutils-dev
+#   libdw     - sudo apt install libdw-dev
+#   libdwarf  - sudo apt install libdwarf-dev
+add_subdirectory(ext/backward-cpp)
+add_backward(heapusage)
 
 # Utility
 configure_file(src/heapusage ${CMAKE_CURRENT_BINARY_DIR}/heapusage COPYONLY)
