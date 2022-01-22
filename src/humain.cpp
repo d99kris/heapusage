@@ -11,6 +11,7 @@
 /* ----------- Includes ------------------------------------------ */
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include <limits.h>
@@ -49,6 +50,14 @@ static pthread_mutex_t hu_recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 static pthread_mutex_t hu_recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 #else
 #warning "unsupported platform"
+#endif
+
+#if defined(__GLIBC__)
+extern "C" void __libc_freeres();
+namespace __gnu_cxx
+{
+  void __freeres();
+}
 #endif
 
 
@@ -118,6 +127,12 @@ void __attribute__ ((constructor)) hu_init(void)
 extern "C"
 void __attribute__ ((destructor)) hu_fini(void)
 {
+#if defined(__GLIBC__)
+  /* Free libc resources */
+  __libc_freeres();
+  __gnu_cxx::__freeres();
+#endif
+
   /* Disable logging */
   log_enable(0);
 

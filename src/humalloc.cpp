@@ -117,7 +117,7 @@ static int hu_mprotect(void* addr, size_t len, int prot)
     if (callcount > (max_map_count / 2))
     {
       fprintf(stderr,
-              "max_map_count=%ld mprotect_count=%ld, try increasing max_map_count, ex::\n",
+              "max_map_count=%ld mprotect_count=%ld, try increasing max_map_count, ex:\n",
               max_map_count, callcount);
       fprintf(stderr, "sudo sh -c \"echo %ld > /proc/sys/vm/max_map_count\"\n",
               (2 * max_map_count));
