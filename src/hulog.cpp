@@ -1,7 +1,7 @@
 /*
  * hulog.cpp
  *
- * Copyright (C) 2017 Kristofer Berggren
+ * Copyright (C) 2017-2022 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -305,8 +305,6 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
 {
   if ((sig != SIGSEGV) && (sig != SIGBUS)) return;
 
-  if (si->si_code != SEGV_ACCERR) return;
-  
   hu_set_bypass(true);
 
   void* ptr = si->si_addr;  
