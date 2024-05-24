@@ -427,7 +427,7 @@ void log_summary()
   unsigned long long leak_total_blocks = 0;
 
   /* Group results by callstack */
-  static std::map<std::vector<void*>, hu_allocinfo_t> allocations_by_callstack;
+  std::map<std::vector<void*>, hu_allocinfo_t> allocations_by_callstack;
   for (auto it = allocations->begin(); it != allocations->end(); ++it)
   {
     std::vector<void*> callstack;
