@@ -91,6 +91,34 @@ static inline bool hu_get_env_bool(const char* name)
   return (strcmp(value, "1") == 0);
 }
 
+#if defined(__linux__)
+static void hu_sigusr_handler(int sig)
+{
+  switch (sig) {
+  case SIGUSR1:
+    log_message("Caught User Signal: SIGUSR1 (%d): Request Log Summary\n", sig);
+    log_summary_safe();
+    break;
+  default:
+    log_message("Caught User Signal: Unexpected Signal (%d): Ignore\n", sig);
+    break;
+  }
+}
+#endif
+
+static void hu_sigusr_init(void)
+{
+#if defined(__linux__)
+  struct sigaction sa;
+
+  sa.sa_handler = hu_sigusr_handler;
+  sa.sa_flags = 0;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGUSR1, &sa, NULL);
+  sigaction(SIGUSR2, &sa, NULL);
+#endif
+}
+
 
 /* ----------- Global Functions ---------------------------------- */
 extern "C"
@@ -119,6 +147,8 @@ void __attribute__ ((constructor)) hu_init(void)
   {
     hu_malloc_init(hu_overflow, hu_useafterfree, hu_minsize);
   }
+
+  hu_sigusr_init();
 
   /* Do not enable preload for child processes */
   unsetenv("DYLD_INSERT_LIBRARIES");

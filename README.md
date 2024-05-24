@@ -142,6 +142,14 @@ function. For doing so, they must include the `huapi.h` public header file, link
 with the Heapusage shared library itself and call `hu_report()` when wanted.
 Still, this only works if the program is running through the `heapusage` tool.
 
+Alternatively, on Linux, sending a `SIGUSR1` signal to the program being run
+through Heapusage will also produce a Heapusage report on demand.
+
+For both `hu_report()` and `SIGUSR1`, it should be noted that the report will
+reflect the state when they are used, which can e.g. report non-freed memory
+that might be still released before the program exits and, therefore, not
+necessarily constitute a memory leak.
+
 Output Format
 =============
 Example output:
