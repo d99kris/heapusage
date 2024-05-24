@@ -136,6 +136,12 @@ Examples:
     heapusage -t all -m 0 ./ex002
            analyze heap allocations of any size with all tools.
 
+Programs being ran with Heapusage can themselves also request reports from
+Heapusage, while the program is running, by using the `hu_report()` public API
+function. For doing so, they must include the `huapi.h` public header file, link
+with the Heapusage shared library itself and call `hu_report()` when wanted.
+Still, this only works if the program is running through the `heapusage` tool.
+
 Output Format
 =============
 Example output:

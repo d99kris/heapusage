@@ -23,9 +23,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Library
-add_library(heapusage SHARED src/humain.cpp src/hulog.cpp src/humalloc.cpp)
+add_library(heapusage SHARED src/humain.cpp src/hulog.cpp src/humalloc.cpp src/huapi.cpp)
+set_target_properties(heapusage PROPERTIES PUBLIC_HEADER "src/huapi.h")
 target_compile_features(heapusage PRIVATE cxx_variadic_templates)
-install(TARGETS heapusage LIBRARY DESTINATION lib)
+install(TARGETS heapusage
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 target_link_libraries(heapusage pthread dl)
 
 # Dependency backward-cpp providing more detailed stacktraces on Linux, when
