@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (C) 2017-2023 Kristofer Berggren
+# Copyright (C) 2017-2024 Kristofer Berggren
 # All rights reserved.
 #
 # heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -46,9 +46,9 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.07"
+  echo "heapusage v2.08"
   echo ""
-  echo "Copyright (C) 2017-2023 Kristofer Berggren"
+  echo "Copyright (C) 2017-2024 Kristofer Berggren"
   echo ""
   echo "heapusage is distributed under the BSD 3-Clause license."
   echo ""

@@ -1,5 +1,5 @@
 # Project
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14...3.22 FATAL_ERROR)
 project(heapusage VERSION 1.0 LANGUAGES C CXX)
 
 set(COMMON_FLAGS "-funwind-tables -g -Wall -Wextra -Wpedantic -Wshadow \
