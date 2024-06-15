@@ -1,7 +1,7 @@
 /*
  * ex004.cpp
  *
- * Copyright (C) 2021 Kristofer Berggren
+ * Copyright (C) 2021-2024 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -33,7 +33,7 @@ int main()
 
   // heap-buffer-overflow read
   char c = s[16];
-  assert(c >= 0);
+  (void)c;
   
   return 0;
 }

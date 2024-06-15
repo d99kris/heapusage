@@ -1,7 +1,7 @@
 /*
  * humalloc.cpp
  *
- * Copyright (C) 2021 Kristofer Berggren
+ * Copyright (C) 2021-2024 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -210,9 +210,12 @@ void* hu_malloc(size_t user_size)
 
   /* Allocate aligned at page size */
   void* sys_ptr = nullptr;
-  int rv = posix_memalign(&sys_ptr, hu_page_size, sys_size);
+  if (posix_memalign(&sys_ptr, hu_page_size, sys_size) != 0)
+  {
+    sys_ptr = nullptr;
+  }
+
   assert(sys_ptr != nullptr);
-  assert(rv == 0);
 
   /* Add post fence protected page, if buffer overflow detection is enabled */
   void* post_fence_ptr = nullptr;
@@ -244,7 +247,7 @@ void* hu_malloc(size_t user_size)
   hu_user_addrs->insert(user_ptr);  
   hu_free_addrs->erase(user_ptr);
 
-  return user_ptr ;
+  return user_ptr;
 }
 
 void hu_free(void* user_ptr)

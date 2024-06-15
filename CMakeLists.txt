@@ -52,6 +52,12 @@ add_executable(ex003 tests/ex003.cpp)
 add_executable(ex004 tests/ex004.cpp)
 add_executable(ex005 tests/ex005.cpp)
 
+target_compile_options(ex001 PRIVATE -O0)
+target_compile_options(ex002 PRIVATE -O0)
+target_compile_options(ex003 PRIVATE -O0)
+target_compile_options(ex004 PRIVATE -O0)
+target_compile_options(ex005 PRIVATE -O0)
+
 configure_file(tests/test001 ${CMAKE_CURRENT_BINARY_DIR}/test001 COPYONLY)
 add_test(test001 "${PROJECT_BINARY_DIR}/test001")
 

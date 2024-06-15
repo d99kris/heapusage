@@ -46,7 +46,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.08"
+  echo "heapusage v2.09"
   echo ""
   echo "Copyright (C) 2017-2024 Kristofer Berggren"
   echo ""

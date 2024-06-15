@@ -1,7 +1,7 @@
 /*
  * humain.cpp
  *
- * Copyright (C) 2017-2021 Kristofer Berggren
+ * Copyright (C) 2017-2024 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -102,7 +102,11 @@ void __attribute__ ((constructor)) hu_init(void)
   hu_overflow = hu_get_env_bool("HU_OVERFLOW");
   hu_useafterfree = hu_get_env_bool("HU_USEAFTERFREE");
   
-  realpath(getenv("HU_FILE"), hu_file);
+  if (realpath(getenv("HU_FILE"), hu_file) == NULL)
+  {
+    snprintf(hu_file, PATH_MAX, "%s", getenv("HU_FILE"));
+  }
+
   hu_minsize = getenv("HU_MINSIZE") ? strtoll(getenv("HU_MINSIZE"), NULL, 10) : 0;
   hu_nosyms = hu_get_env_bool("HU_NOSYMS");
 

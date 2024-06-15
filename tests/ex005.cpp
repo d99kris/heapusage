@@ -1,7 +1,7 @@
 /*
  * ex005.cpp
  *
- * Copyright (C) 2021 Kristofer Berggren
+ * Copyright (C) 2021-2024 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -23,7 +23,7 @@ int main()
 
   // use-after-free read
   char c = s[10]; // 'd'
-  assert(c >= 0);
+  (void)c;
   
   return 0;
 }
