@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #include <map>
 #include <set>
@@ -385,6 +386,30 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
   exit(EXIT_FAILURE);
 }
 
+void log_message(const char *format, ...)
+{
+  va_list args;
+
+  FILE *f = NULL;
+  if (hu_log_file)
+  {
+    f = fopen(hu_log_file, "a");
+  }
+
+  if (!f)
+  {
+    return;
+  }
+
+  fprintf(f, "==%d== MESSAGE: ", pid);
+
+  va_start(args, format);
+  vfprintf(f, format, args);
+  va_end(args);
+
+  fclose(f);
+}
+
 void log_summary()
 {
   FILE *f = NULL;
@@ -402,7 +427,7 @@ void log_summary()
   unsigned long long leak_total_blocks = 0;
 
   /* Group results by callstack */
-  static std::map<std::vector<void*>, hu_allocinfo_t> allocations_by_callstack;
+  std::map<std::vector<void*>, hu_allocinfo_t> allocations_by_callstack;
   for (auto it = allocations->begin(); it != allocations->end(); ++it)
   {
     std::vector<void*> callstack;
@@ -463,6 +488,17 @@ void log_summary()
   fprintf(f, "==%d== \n", pid);
 
   fclose(f);
+}
+
+void log_summary_safe()
+{
+  hu_set_bypass(true);
+  log_enable(0);
+
+  log_summary();
+
+  log_enable(1);
+  hu_set_bypass(false);
 }
 
 void hu_log_remove_freed_allocation(void* ptr)
