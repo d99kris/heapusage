@@ -1,12 +1,14 @@
 /*
  * humain.h
  *
- * Copyright (C) 2017-2021 Kristofer Berggren
+ * Copyright (C) 2017-2024 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
  *
  */
+
+#pragma once
 
 /* ----------- Global Function Prototypes ------------------------ */
 extern "C" void __attribute__ ((constructor)) hu_init(void);

@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+# Environment
+RV=0
+TMPDIR=$(mktemp -d)
+
+# Run application
+./heapusage -t all -m 0 -o ${TMPDIR}/out.txt ./ex007 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
+
+# ==30520== Heapusage - https://github.com/d99kris/heapusage
+# ==30520== 
+# ==30520== ON DEMAND REPORT
+# ==30520== HEAP SUMMARY:
+# ==30520==     in use at exit: 1111 bytes in 1 blocks
+# ==30520==   total heap usage: 1 allocs, 0 frees, 1111 bytes allocated
+# ==30520==    peak heap usage: 1111 bytes allocated
+# ==30520== 
+# ==30520== 1111 bytes in 1 block(s) are lost, originally allocated at:
+# ==30520==    at 0x0000000100bd2ba4: malloc_wrap + 164
+# ==30520==    at 0x0000000100767f34: main + 24
+# ==30520==    at 0x00000001914ea0e0: start + 2360
+# ==30520== 
+# ==30520== LEAK SUMMARY:
+# ==30520==    definitely lost: 1111 bytes in 1 blocks
+# ==30520== 
+# ==30520== HEAP SUMMARY:
+# ==30520==     in use at exit: 3333 bytes in 2 blocks
+# ==30520==   total heap usage: 2 allocs, 0 frees, 3333 bytes allocated
+# ==30520==    peak heap usage: 3333 bytes allocated
+# ==30520== 
+# ==30520== 2222 bytes in 1 block(s) are lost, originally allocated at:
+# ==30520==    at 0x0000000100bd2ba4: malloc_wrap + 164
+# ==30520==    at 0x0000000100767f48: main + 44
+# ==30520==    at 0x00000001914ea0e0: start + 2360
+# ==30520== 
+# ==30520== 1111 bytes in 1 block(s) are lost, originally allocated at:
+# ==30520==    at 0x0000000100bd2ba4: malloc_wrap + 164
+# ==30520==    at 0x0000000100767f34: main + 24
+# ==30520==    at 0x00000001914ea0e0: start + 2360
+# ==30520== 
+# ==30520== LEAK SUMMARY:
+# ==30520==    definitely lost: 3333 bytes in 2 blocks
+# ==30520== 
+
+# Check presence of on demand header
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -3 | tail -1)
+EXPT=" ON DEMAND REPORT"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check first peak heap usage
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | grep 'peak heap usage' | head -1 | tail -1)
+EXPT="    peak heap usage: 1111 bytes allocated"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check second peak heap usage
+LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | grep 'peak heap usage' | head -2 | tail -1)
+EXPT="    peak heap usage: 3333 bytes allocated"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Cleanup
+rm -rf ${TMPDIR}
+
+# Exit
+exit ${RV}
+

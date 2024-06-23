@@ -101,6 +101,9 @@ Options:
     -o <path>
            write output to specified file path, instead of stderr
 
+    -s <SIG>
+           enable on-demand logging when signalled SIG signal
+
     -t <tools>
            analysis tools to use (default "leak")
 
@@ -166,6 +169,21 @@ Example output:
 Source code filename and line numbers are only supported on Linux, when package
 binutils-dev is available. On macOS one can use atos to determine source code
 details.
+
+Advanced Usage
+==============
+On-demand report can be requested by utilizing the `-s` flag and specifying a
+signal, and the sending the signal to the process. Example:
+
+    ./build/heapusage -s SIGUSR1 -t all -m 0 -o hu.txt nano
+    kill -s SIGUSR1 $(pidof nano)
+
+Programs can also link libheapusage and call `hu_report()` for an on-demand
+report, see `tests/ex007.cpp` for an example.
+
+Note that on-demand reporting will reflect the state when they are used, and
+will thus report memory currently in use that might still be released before
+the program exits, and therefore not necessarily constitute a memory leak.
 
 Technical Details
 =================

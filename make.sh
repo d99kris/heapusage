@@ -75,7 +75,7 @@ if [[ "${DEPS}" == "1" ]]; then
       exiterr "deps failed (unsupported linux distro ${DISTRO}), exiting."
     fi
   elif [ "${OS}" == "Darwin" ]; then
-    true || exiterr "deps failed (mac), exiting."
+    brew install pidof || exiterr "deps failed (mac), exiting."
   else
     exiterr "deps failed (unsupported os ${OS}), exiting."
   fi

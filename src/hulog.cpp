@@ -1,7 +1,7 @@
 /*
  * hulog.cpp
  *
- * Copyright (C) 2017-2022 Kristofer Berggren
+ * Copyright (C) 2017-2024 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -385,7 +385,7 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
   exit(EXIT_FAILURE);
 }
 
-void log_summary()
+void log_summary(bool ondemand)
 {
   FILE *f = NULL;
   if (hu_log_file)
@@ -402,7 +402,7 @@ void log_summary()
   unsigned long long leak_total_blocks = 0;
 
   /* Group results by callstack */
-  static std::map<std::vector<void*>, hu_allocinfo_t> allocations_by_callstack;
+  std::map<std::vector<void*>, hu_allocinfo_t> allocations_by_callstack;
   for (auto it = allocations->begin(); it != allocations->end(); ++it)
   {
     std::vector<void*> callstack;
@@ -428,6 +428,12 @@ void log_summary()
   for (auto it = allocations_by_callstack.begin(); it != allocations_by_callstack.end(); ++it)
   {
       allocations_by_size.insert(it->second);
+  }
+
+  /* Indicate in case an on-demand report */
+  if (ondemand)
+  {
+    fprintf(f, "==%d== ON DEMAND REPORT\n", pid);
   }
 
   /* Output heap summary */
