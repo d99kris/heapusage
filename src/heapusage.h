@@ -1,16 +1,14 @@
 /*
- * huapi.h
+ * heapusage.h
  *
- * Copyright (C) 2021 Kristofer Berggren
+ * Copyright (C) 2024 Kristofer Berggren
  * All rights reserved.
  *
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
  *
  */
 
-#ifndef _HUAPI_H_
-#define _HUAPI_H_
-
+#pragma once
 
 /* ----------- Global Function Prototypes ------------------------ */
 
@@ -23,5 +21,3 @@ void hu_report(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* _HUAPI_H_ */

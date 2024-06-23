@@ -10,7 +10,7 @@ showusage()
   echo "Heapusage is a light-weight tool for finding heap memory errors in"
   echo "applications."
   echo ""
-  echo "Usage: heapusage [-d] [-m minsize] [-n] [-o path] [-t tools] PROG [ARGS..]"
+  echo "Usage: heapusage [-d] [-m minsize] [-n] [-o path] [-s SIG] [-t tools] PROG [ARGS..]"
   echo "   or: heapusage --help"
   echo "   or: heapusage --version"
   echo ""
@@ -19,6 +19,7 @@ showusage()
   echo "   -m <minsize>    min alloc size to enable analysis for (default 0)"
   echo "   -n              no symbol lookup (faster)"
   echo "   -o <path>       write output to specified file path, instead of stderr"
+  echo "   -s <SIG>        enable on-demand logging when signalled SIG signal"
   echo "   -t <tools>      analysis tools to use (default \"leak\")"
   echo "   PROG            program to run and analyze"
   echo "   [ARGS]          optional arguments to the program"
@@ -46,7 +47,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.09"
+  echo "heapusage v2.10"
   echo ""
   echo "Copyright (C) 2017-2024 Kristofer Berggren"
   echo ""
@@ -72,8 +73,9 @@ DEBUG="0"
 MINSIZE="0"
 NOSYMS="0"
 OUTFILE=""
+SIGNO=""
 TOOLS="leak"
-while getopts "?dfm:no:t:" OPT; do
+while getopts "?dfm:no:s:t:" OPT; do
   case "${OPT}" in
   \?)
     showusage
@@ -90,6 +92,18 @@ while getopts "?dfm:no:t:" OPT; do
     ;;
   o)
     OUTFILE="${OPTARG}"
+    ;;
+  s)
+    if ! [[ "${OPTARG}" =~ ^[0-9]+$ ]]; then
+      # Not a number, try signal name
+      SIGNO="$(kill -l ${OPTARG} 2> /dev/null)"
+      if [[ "${SIGNO}" == "" ]]; then
+        echo "error: unknown signal name ${OPTARG}"
+        exit 1
+      fi
+    else
+      SIGNO="${OPTARG}"
+    fi
     ;;
   t)
     TOOLS="${OPTARG}"
@@ -201,6 +215,7 @@ while [ "${LIBPATHS[CNT]}" != "" ]; do
       HU_FILE="${TMPLOG}${OUTFILE}"         \
       HU_MINSIZE="${MINSIZE}"               \
       HU_NOSYMS="${NOSYMS}"                 \
+      HU_SIGNO="${SIGNO}"                   \
       LD_PRELOAD="${LIBPATH}"               \
       DYLD_INSERT_LIBRARIES="${LIBPATH}"    \
       DYLD_FORCE_FLAT_NAMESPACE=1           \
@@ -214,6 +229,7 @@ while [ "${LIBPATHS[CNT]}" != "" ]; do
       echo "env HU_FILE=\"${TMPLOG}${OUTFILE}\""        >> "${LLDBCMDPATH}"
       echo "env HU_MINSIZE=\"${MINSIZE}\""              >> "${LLDBCMDPATH}"
       echo "env HU_NOSYMS=\"${NOSYMS}\""                >> "${LLDBCMDPATH}"
+      echo "env HU_SIGNO=\"${SIGNO}\""                  >> "${LLDBCMDPATH}"
       echo "env LD_PRELOAD=\"${LIBPATH}\""              >> "${LLDBCMDPATH}"
       echo "env DYLD_INSERT_LIBRARIES=\"${LIBPATH}\""   >> "${LLDBCMDPATH}"
       echo "env DYLD_FORCE_FLAT_NAMESPACE=1"            >> "${LLDBCMDPATH}"

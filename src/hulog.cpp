@@ -1,7 +1,7 @@
 /*
  * hulog.cpp
  *
- * Copyright (C) 2017-2022 Kristofer Berggren
+ * Copyright (C) 2017-2024 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdarg.h>
 
 #include <map>
 #include <set>
@@ -386,31 +385,7 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
   exit(EXIT_FAILURE);
 }
 
-void log_message(const char *format, ...)
-{
-  va_list args;
-
-  FILE *f = NULL;
-  if (hu_log_file)
-  {
-    f = fopen(hu_log_file, "a");
-  }
-
-  if (!f)
-  {
-    return;
-  }
-
-  fprintf(f, "==%d== MESSAGE: ", pid);
-
-  va_start(args, format);
-  vfprintf(f, format, args);
-  va_end(args);
-
-  fclose(f);
-}
-
-void log_summary()
+void log_summary(bool ondemand)
 {
   FILE *f = NULL;
   if (hu_log_file)
@@ -455,6 +430,12 @@ void log_summary()
       allocations_by_size.insert(it->second);
   }
 
+  /* Indicate in case an on-demand report */
+  if (ondemand)
+  {
+    fprintf(f, "==%d== ON DEMAND REPORT\n", pid);
+  }
+
   /* Output heap summary */
   fprintf(f, "==%d== HEAP SUMMARY:\n", pid);
   fprintf(f, "==%d==     in use at exit: %llu bytes in %llu blocks\n",
@@ -488,17 +469,6 @@ void log_summary()
   fprintf(f, "==%d== \n", pid);
 
   fclose(f);
-}
-
-void log_summary_safe()
-{
-  hu_set_bypass(true);
-  log_enable(0);
-
-  log_summary();
-
-  log_enable(1);
-  hu_set_bypass(false);
 }
 
 void hu_log_remove_freed_allocation(void* ptr)

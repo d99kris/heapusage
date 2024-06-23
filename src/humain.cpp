@@ -37,6 +37,7 @@ static bool hu_useafterfree = false;
 static char hu_file[PATH_MAX];
 static size_t hu_minsize = 0;
 static bool hu_nosyms = 0;
+static int hu_log_signo = 0;
 
 /* State */
 static bool hu_enable_humalloc = false;
@@ -59,6 +60,17 @@ namespace __gnu_cxx
   void __freeres();
 }
 #endif
+
+
+/* ----------- Global Functions ---------------------------------- */
+extern "C" void hu_report()
+{
+  hu_set_bypass(true);
+  log_enable(0);
+  log_summary(true /* ondemand */);
+  log_enable(1);
+  hu_set_bypass(false);
+}
 
 
 /* ----------- Local Functions ----------------------------------- */
@@ -91,32 +103,9 @@ static inline bool hu_get_env_bool(const char* name)
   return (strcmp(value, "1") == 0);
 }
 
-#if defined(__linux__)
-static void hu_sigusr_handler(int sig)
+void signal_handler(int)
 {
-  switch (sig) {
-  case SIGUSR1:
-    log_message("Caught User Signal: SIGUSR1 (%d): Request Log Summary\n", sig);
-    log_summary_safe();
-    break;
-  default:
-    log_message("Caught User Signal: Unexpected Signal (%d): Ignore\n", sig);
-    break;
-  }
-}
-#endif
-
-static void hu_sigusr_init(void)
-{
-#if defined(__linux__)
-  struct sigaction sa;
-
-  sa.sa_handler = hu_sigusr_handler;
-  sa.sa_flags = 0;
-  sigemptyset(&sa.sa_mask);
-  sigaction(SIGUSR1, &sa, NULL);
-  sigaction(SIGUSR2, &sa, NULL);
-#endif
+  hu_report();
 }
 
 
@@ -132,7 +121,14 @@ void __attribute__ ((constructor)) hu_init(void)
   
   if (realpath(getenv("HU_FILE"), hu_file) == NULL)
   {
-    snprintf(hu_file, PATH_MAX, "%s", getenv("HU_FILE"));
+    if (getenv("HU_FILE") != NULL)
+    {
+      snprintf(hu_file, PATH_MAX, "%s", getenv("HU_FILE"));
+    }
+    else
+    {
+      snprintf(hu_file, PATH_MAX, "hulog.txt");
+    }
   }
 
   hu_minsize = getenv("HU_MINSIZE") ? strtoll(getenv("HU_MINSIZE"), NULL, 10) : 0;
@@ -148,7 +144,12 @@ void __attribute__ ((constructor)) hu_init(void)
     hu_malloc_init(hu_overflow, hu_useafterfree, hu_minsize);
   }
 
-  hu_sigusr_init();
+  /* Register signal handler */
+  hu_log_signo = getenv("HU_SIGNO") ? strtoll(getenv("HU_SIGNO"), NULL, 10) : 0;
+  if (hu_log_signo != 0)
+  {
+    signal(hu_log_signo, signal_handler);
+  }
 
   /* Do not enable preload for child processes */
   unsetenv("DYLD_INSERT_LIBRARIES");
@@ -178,7 +179,7 @@ void __attribute__ ((destructor)) hu_fini(void)
   }
 
   /* Present result */
-  log_summary();
+  log_summary(false /* ondemand */);
 }
 
 void hu_set_bypass(bool bypass)

@@ -23,12 +23,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Library
-add_library(heapusage SHARED src/humain.cpp src/hulog.cpp src/humalloc.cpp src/huapi.cpp)
-set_target_properties(heapusage PROPERTIES PUBLIC_HEADER "src/huapi.h")
+add_library(heapusage SHARED src/humain.cpp src/hulog.cpp src/humalloc.cpp)
+set_target_properties(heapusage PROPERTIES PUBLIC_HEADER "src/heapusage.h")
 target_compile_features(heapusage PRIVATE cxx_variadic_templates)
-install(TARGETS heapusage
-    LIBRARY DESTINATION lib
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(TARGETS heapusage LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include)
 target_link_libraries(heapusage pthread dl)
 
 # Dependency backward-cpp providing more detailed stacktraces on Linux, when
@@ -49,17 +47,23 @@ install(FILES src/heapusage.1 DESTINATION share/man/man1)
 # Tests
 enable_testing()
 
+include_directories("src")
 add_executable(ex001 tests/ex001.c)
 add_executable(ex002 tests/ex002.c)
 add_executable(ex003 tests/ex003.cpp)
 add_executable(ex004 tests/ex004.cpp)
 add_executable(ex005 tests/ex005.cpp)
+add_executable(ex006 tests/ex006.cpp)
+add_executable(ex007 tests/ex007.cpp src/heapusage.h)
 
 target_compile_options(ex001 PRIVATE -O0)
 target_compile_options(ex002 PRIVATE -O0)
 target_compile_options(ex003 PRIVATE -O0)
 target_compile_options(ex004 PRIVATE -O0)
 target_compile_options(ex005 PRIVATE -O0)
+target_compile_options(ex006 PRIVATE -O0)
+target_compile_options(ex007 PRIVATE -O0)
+target_link_libraries(ex007 heapusage)
 
 configure_file(tests/test001 ${CMAKE_CURRENT_BINARY_DIR}/test001 COPYONLY)
 add_test(test001 "${PROJECT_BINARY_DIR}/test001")
@@ -75,3 +79,9 @@ add_test(test004 "${PROJECT_BINARY_DIR}/test004")
 
 configure_file(tests/test005 ${CMAKE_CURRENT_BINARY_DIR}/test005 COPYONLY)
 add_test(test005 "${PROJECT_BINARY_DIR}/test005")
+
+configure_file(tests/test006 ${CMAKE_CURRENT_BINARY_DIR}/test006 COPYONLY)
+add_test(test006 "${PROJECT_BINARY_DIR}/test006")
+
+configure_file(tests/test007 ${CMAKE_CURRENT_BINARY_DIR}/test007 COPYONLY)
+add_test(test007 "${PROJECT_BINARY_DIR}/test007")
