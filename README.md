@@ -185,6 +185,10 @@ Note that on-demand reporting will reflect the state when they are used, and
 will thus report memory currently in use that might still be released before
 the program exits, and therefore not necessarily constitute a memory leak.
 
+Heapusage uses a default call stack limit of 20 frames per call stack. It is
+possible to change this value at build time by using the `HU_MAX_CALL_STACK`
+CMake variable.
+
 Technical Details
 =================
 Heapusage intercepts calls to malloc/free/calloc/realloc and logs each memory

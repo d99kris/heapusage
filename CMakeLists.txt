@@ -2,6 +2,9 @@
 cmake_minimum_required(VERSION 3.0...3.22 FATAL_ERROR)
 project(heapusage VERSION 1.0 LANGUAGES C CXX)
 
+set(HU_MAX_CALL_STACK "20" CACHE STRING
+    "Maximum call stack captured by heapusage, in number of entries (20 by default).")
+
 set(COMMON_FLAGS "-funwind-tables -g -Wall -Wextra -Wpedantic -Wshadow \
                   -Wpointer-arith -Wcast-qual -Wno-missing-braces \
                   -Wswitch-default -Wcast-align -Wunreachable-code \
@@ -28,6 +31,11 @@ set_target_properties(heapusage PROPERTIES PUBLIC_HEADER "src/heapusage.h")
 target_compile_features(heapusage PRIVATE cxx_variadic_templates)
 install(TARGETS heapusage LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include)
 target_link_libraries(heapusage pthread dl)
+# Pre-processor defines that can be overriden with CMake variables:
+# - HU_MAX_CALL_STACK for overriding MAX_CALL_STACK.
+if (DEFINED HU_MAX_CALL_STACK)
+  target_compile_definitions(heapusage PRIVATE MAX_CALL_STACK=${HU_MAX_CALL_STACK})
+endif()
 
 # Dependency backward-cpp providing more detailed stacktraces on Linux, when
 # either of the following is present (only ONE needed):

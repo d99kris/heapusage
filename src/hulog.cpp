@@ -37,7 +37,10 @@
 
 
 /* ----------- Defines ------------------------------------------- */
+/* Can be externally overridden. */
+#if !defined(MAX_CALL_STACK)
 #define MAX_CALL_STACK 20   /* Limits the callstack depth to store */
+#endif
 
 
 /* ----------- Types --------------------------------------------- */
