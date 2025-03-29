@@ -4220,6 +4220,8 @@ public:
 #elif defined(__mips__)
     error_addr = reinterpret_cast<void *>(
         reinterpret_cast<struct sigcontext *>(&uctx->uc_mcontext)->sc_pc);
+#elif defined(__APPLE__) && defined(__POWERPC__)
+    error_addr = reinterpret_cast<void *>(uctx->uc_mcontext->__ss.__srr0);
 #elif defined(__ppc__) || defined(__powerpc) || defined(__powerpc__) ||        \
     defined(__POWERPC__)
     error_addr = reinterpret_cast<void *>(uctx->uc_mcontext.regs->nip);
