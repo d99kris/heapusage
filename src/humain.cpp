@@ -1,7 +1,7 @@
 /*
  * humain.cpp
  *
- * Copyright (C) 2017-2024 Kristofer Berggren
+ * Copyright (C) 2017-2025 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 
 #include <limits.h>
 #include <pthread.h>
@@ -45,13 +46,7 @@ static bool hu_bypass = false;
 
 /* Recursion detection */
 static int hu_callcount = 0;
-#ifdef __APPLE__
-static pthread_mutex_t hu_recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
-#elif __linux__
-static pthread_mutex_t hu_recursive_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-#else
-#warning "unsupported platform"
-#endif
+static std::recursive_mutex* hu_recursive_mutex = nullptr;
 
 #if defined(__GLIBC__)
 extern "C" void __libc_freeres();
@@ -74,19 +69,30 @@ extern "C" void hu_report()
 
 
 /* ----------- Local Functions ----------------------------------- */
+/*
+ * hu_recursion_checker provides two functionalities; effectively a scoped
+ * lock ensuring single-thread access to underlying allocation functions - and
+ * a calldepth counter to provide recursion detection.
+ */
 class hu_recursion_checker
 {
 public:
   hu_recursion_checker()
   {
-    pthread_mutex_lock(&hu_recursive_lock);
+    if (hu_recursive_mutex != nullptr)
+    {
+      hu_recursive_mutex->lock();
+    }
     ++hu_callcount;
   }
 
   ~hu_recursion_checker()
   {
     --hu_callcount;
-    pthread_mutex_unlock(&hu_recursive_lock);
+    if (hu_recursive_mutex != nullptr)
+    {
+      hu_recursive_mutex->unlock();
+    }
   }
 
   bool is_recursive_call()
@@ -137,6 +143,11 @@ void __attribute__ ((constructor)) hu_init(void)
   /* Init logging */
   log_init(hu_file, hu_doublefree, hu_nosyms, hu_minsize, hu_useafterfree, hu_leak);
   
+  /* Init mutex for recursion detection */
+  hu_bypass = true;
+  hu_recursive_mutex = new std::recursive_mutex();
+  hu_bypass = false;
+
   /* Init custom malloc */
   hu_enable_humalloc = (hu_overflow || hu_useafterfree);
   if (hu_enable_humalloc)
