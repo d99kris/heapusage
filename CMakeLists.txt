@@ -64,7 +64,7 @@ add_executable(ex005 tests/ex005.cpp)
 add_executable(ex006 tests/ex006.cpp)
 add_executable(ex007 tests/ex007.cpp src/heapusage.h)
 
-set(TEST_COMPILE_OPTIONS -O0 -Wno-use-after-free)
+set(TEST_COMPILE_OPTIONS -O0)
 target_compile_options(ex001 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex002 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex003 PRIVATE ${TEST_COMPILE_OPTIONS})

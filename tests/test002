@@ -2,7 +2,7 @@
 
 # Environment
 RV=0
-TMPDIR=$(mktemp -d)
+TMPDIR=$(mktemp -d -t heapusage.XXXXXX)
 
 # Run application
 ./heapusage -m 0 -t all -o ${TMPDIR}/out.txt ./ex002 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt

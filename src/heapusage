@@ -47,7 +47,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.14"
+  echo "heapusage v2.15"
   echo ""
   echo "Copyright (C) 2017-2025 Kristofer Berggren"
   echo ""
@@ -187,7 +187,7 @@ if [[ "${DOUBLEFREE}${LEAK}${OVERFLOW}${USEAFTERFREE}" == "0000" ]]; then
 fi
 
 # Create temp dir
-TMP=$(mktemp -d)
+TMP=$(mktemp -d -t heapusage.XXXXXX)
 
 # Set output path
 if [ "${OUTFILE}" == "" ]; then
