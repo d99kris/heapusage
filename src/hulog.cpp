@@ -9,6 +9,10 @@
  */
 
 /* ----------- Includes ------------------------------------------ */
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <execinfo.h>
