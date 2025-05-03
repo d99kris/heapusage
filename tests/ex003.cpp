@@ -15,9 +15,9 @@ class Simple {
 
 /**
  * @brief Convert std::string to char *
- * 
- * @param str 
- * @return char* 
+ *
+ * @param str
+ * @return char*
  */
 char * string_to_char(const std::string& str){
     char * cstr = new char [str.length()+1];
@@ -27,8 +27,8 @@ char * string_to_char(const std::string& str){
 
 /**
  * @brief Instantiate C++ vector, unique pointer, raw pointer
- * 
- * @return int 
+ *
+ * @return int
  */
 int main() {
     /* vector - part 1 */
@@ -55,5 +55,5 @@ int main() {
     (void)_hello;
     // do not free: delete _hello;
 
-    return EXIT_SUCCESS;
+    return 0;
 }
