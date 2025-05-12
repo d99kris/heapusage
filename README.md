@@ -205,6 +205,10 @@ Heapusage does currently not intercept calls to:
 - pvalloc
 - valloc
 
+Platforms supported:
+- macOS 10.12 onwards (Mac OS X or older not supported)
+- Linux 2.6.31 onwards on CPU architectures x86 / amd64 / aarch64
+
 Third-party Libraries
 ---------------------
 Heapusage is implemented in C++. Its source tree includes the source code of the
