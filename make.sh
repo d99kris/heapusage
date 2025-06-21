@@ -20,6 +20,8 @@ BUILD="0"
 TESTS="0"
 DOC="0"
 INSTALL="0"
+YES=""
+
 case "${1%/}" in
   deps)
     DEPS="1"
@@ -52,14 +54,28 @@ case "${1%/}" in
     INSTALL="1"
     ;;
 
+  -y)
+    YES="-y"
+    ;;
+
+  --yes)
+    YES="-y"
+    ;;
+
   *)
-    echo "usage: make.sh <deps|build|tests|doc|install|all>"
+    echo "usage: make.sh [OPTIONS] ACTION"
+    echo ""
+    echo "Options:"
+    echo "  --yes,-y        - non-interactive mode, assume yes"
+    echo ""
+    echo "Action:"
     echo "  deps      - install project dependencies"
     echo "  build     - perform build"
     echo "  tests     - perform build and run tests"
     echo "  doc       - perform build and generate documentation"
     echo "  install   - perform build and install"
     echo "  all       - perform all actions above"
+    echo ""
     exit 1
     ;;
 esac
@@ -68,11 +84,14 @@ esac
 if [[ "${DEPS}" == "1" ]]; then
   OS="$(uname)"
   if [ "${OS}" == "Linux" ]; then
-    DISTRO="$(lsb_release -i | awk -F':\t' '{print $2}')"
-    if [[ "${DISTRO}" == "Ubuntu" ]]; then
-      sudo apt update && sudo apt -y install build-essential cmake binutils-dev || exiterr "deps failed (linux), exiting."
+    unset NAME
+    eval $(grep "^NAME=" /etc/os-release 2> /dev/null)
+    if [[ "${NAME}" == "Ubuntu" ]]; then
+      sudo apt update && sudo apt ${YES} install build-essential cmake binutils-dev || exiterr "deps failed (linux), exiting."
+    elif [[ "${NAME}" == "Rocky Linux" ]]; then
+      sudo yum ${YES} groupinstall "Development Tools" && sudo yum ${YES} install git cmake
     else
-      exiterr "deps failed (unsupported linux distro ${DISTRO}), exiting."
+      exiterr "deps failed (unsupported linux distro ${NAME}), exiting."
     fi
   elif [ "${OS}" == "Darwin" ]; then
     brew install pidof || exiterr "deps failed (mac), exiting."
