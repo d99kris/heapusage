@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (C) 2017-2025 Kristofer Berggren
+# Copyright (C) 2017-2026 Kristofer Berggren
 # All rights reserved.
 #
 # heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
@@ -47,9 +47,9 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.17"
+  echo "heapusage v2.18"
   echo ""
-  echo "Copyright (C) 2017-2025 Kristofer Berggren"
+  echo "Copyright (C) 2017-2026 Kristofer Berggren"
   echo ""
   echo "heapusage is distributed under the BSD 3-Clause license."
   echo ""
@@ -111,17 +111,17 @@ while getopts "?dfm:no:s:t:" OPT; do
   esac
 done
 shift $((OPTIND-1))
-[ "$1" = "--" ] && shift
+[[ "$1" = "--" ]] && shift
 
 # Arguments - ensure program specified
-if [ "${#}" == "0" ] ; then
+if [[ "${#}" == "0" ]]; then
   showusage
   exit 1
 fi
 
 # Determine self location
 SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do
+while [[ -h "$SOURCE" ]]; do
   DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
   SOURCE="$(readlink "$SOURCE")"
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
@@ -129,16 +129,41 @@ done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 # Set Heapusage library name
-if [ "$(uname)" == "Darwin" ]; then
+if [[ "$(uname)" == "Darwin" ]]; then
   # Mac
   LIBNAME="libheapusage.dylib"
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
   # GNU/Linux
   LIBNAME="libheapusage.so"
 else
   # Unsupported OS
   echo "error: unsupported OS"
   exit 1
+fi
+
+# Detect debugger (only matters when -d is used)
+if [[ "${DEBUG}" == "1" ]]; then
+  if [[ "$(uname)" == "Darwin" ]]; then
+    # macOS: prefer LLDB, fall back to GDB
+    if command -v lldb &> /dev/null; then
+      DEBUGGER="lldb"
+    elif command -v gdb &> /dev/null; then
+      DEBUGGER="gdb"
+    else
+      echo "error: no debugger found (lldb or gdb required)"
+      exit 1
+    fi
+  else
+    # Linux: prefer GDB, fall back to LLDB
+    if command -v gdb &> /dev/null; then
+      DEBUGGER="gdb"
+    elif command -v lldb &> /dev/null; then
+      DEBUGGER="lldb"
+    else
+      echo "error: no debugger found (gdb or lldb required)"
+      exit 1
+    fi
+  fi
 fi
 
 # Supported library paths
@@ -161,7 +186,7 @@ do
     LEAK="1"
     OVERFLOW="1"
     USEAFTERFREE="1"
-    ;;      
+    ;;
   double-free)
     DOUBLEFREE="1"
     ;;
@@ -190,7 +215,7 @@ fi
 TMP=$(mktemp -d -t heapusage.XXXXXX)
 
 # Set output path
-if [ "${OUTFILE}" == "" ]; then
+if [[ "${OUTFILE}" == "" ]]; then
   # Create temporary output dir and set up log file path
   TMPLOG="${TMP}/heapusage.log"
 else
@@ -202,12 +227,12 @@ fi
 RV=1
 CNT=0
 FOUND=0
-while [ "${LIBPATHS[CNT]}" != "" ]; do
+while [[ "${LIBPATHS[CNT]}" != "" ]]; do
   LIBPATH="${LIBPATHS[CNT]}"
-  if [ -e "${LIBPATH}" ]; then
+  if [[ -e "${LIBPATH}" ]]; then
 
     # Run program
-    if [ "${DEBUG}" == "0" ]; then
+    if [[ "${DEBUG}" == "0" ]]; then
       HU_DOUBLEFREE="${DOUBLEFREE}"         \
       HU_LEAK="${LEAK}"                     \
       HU_OVERFLOW="${OVERFLOW}"             \
@@ -221,22 +246,39 @@ while [ "${LIBPATHS[CNT]}" != "" ]; do
       DYLD_FORCE_FLAT_NAMESPACE=1           \
       "${@:1}"
     else
-      LLDBCMDPATH="${TMP}/lldb.cmd"
-      echo "env HU_DOUBLEFREE=\"${DOUBLEFREE}\""        >  "${LLDBCMDPATH}"
-      echo "env HU_LEAK=\"${LEAK}\""                    >> "${LLDBCMDPATH}"
-      echo "env HU_OVERFLOW=\"${OVERFLOW}\""            >> "${LLDBCMDPATH}"
-      echo "env HU_USEAFTERFREE=\"${USEAFTERFREE}\""    >> "${LLDBCMDPATH}"
-      echo "env HU_FILE=\"${TMPLOG}${OUTFILE}\""        >> "${LLDBCMDPATH}"
-      echo "env HU_MINSIZE=\"${MINSIZE}\""              >> "${LLDBCMDPATH}"
-      echo "env HU_NOSYMS=\"${NOSYMS}\""                >> "${LLDBCMDPATH}"
-      echo "env HU_SIGNO=\"${SIGNO}\""                  >> "${LLDBCMDPATH}"
-      echo "env LD_PRELOAD=\"${LIBPATH}\""              >> "${LLDBCMDPATH}"
-      echo "env DYLD_INSERT_LIBRARIES=\"${LIBPATH}\""   >> "${LLDBCMDPATH}"
-      echo "env DYLD_FORCE_FLAT_NAMESPACE=1"            >> "${LLDBCMDPATH}"
-      echo "run ${@:2}"                                 >> "${LLDBCMDPATH}"
-      lldb "${1}" -s "${LLDBCMDPATH}"
+      if [[ "${DEBUGGER}" == "gdb" ]]; then
+        GDBCMD="${TMP}/gdb.cmd"
+        echo "set env HU_DOUBLEFREE=${DOUBLEFREE}"        >  "${GDBCMD}"
+        echo "set env HU_LEAK=${LEAK}"                    >> "${GDBCMD}"
+        echo "set env HU_OVERFLOW=${OVERFLOW}"            >> "${GDBCMD}"
+        echo "set env HU_USEAFTERFREE=${USEAFTERFREE}"    >> "${GDBCMD}"
+        echo "set env HU_FILE=${TMPLOG}${OUTFILE}"        >> "${GDBCMD}"
+        echo "set env HU_MINSIZE=${MINSIZE}"              >> "${GDBCMD}"
+        echo "set env HU_NOSYMS=${NOSYMS}"                >> "${GDBCMD}"
+        echo "set env HU_SIGNO=${SIGNO}"                  >> "${GDBCMD}"
+        echo "set env LD_PRELOAD=${LIBPATH}"              >> "${GDBCMD}"
+        echo "set env DYLD_INSERT_LIBRARIES=${LIBPATH}"   >> "${GDBCMD}"
+        echo "set env DYLD_FORCE_FLAT_NAMESPACE=1"        >> "${GDBCMD}"
+        echo "run"                                        >> "${GDBCMD}"
+        gdb -x "${GDBCMD}" --args "${@:1}"
+      else
+        LLDBCMD="${TMP}/lldb.cmd"
+        echo "env HU_DOUBLEFREE=\"${DOUBLEFREE}\""        >  "${LLDBCMD}"
+        echo "env HU_LEAK=\"${LEAK}\""                    >> "${LLDBCMD}"
+        echo "env HU_OVERFLOW=\"${OVERFLOW}\""            >> "${LLDBCMD}"
+        echo "env HU_USEAFTERFREE=\"${USEAFTERFREE}\""    >> "${LLDBCMD}"
+        echo "env HU_FILE=\"${TMPLOG}${OUTFILE}\""        >> "${LLDBCMD}"
+        echo "env HU_MINSIZE=\"${MINSIZE}\""              >> "${LLDBCMD}"
+        echo "env HU_NOSYMS=\"${NOSYMS}\""                >> "${LLDBCMD}"
+        echo "env HU_SIGNO=\"${SIGNO}\""                  >> "${LLDBCMD}"
+        echo "env LD_PRELOAD=\"${LIBPATH}\""              >> "${LLDBCMD}"
+        echo "env DYLD_INSERT_LIBRARIES=\"${LIBPATH}\""   >> "${LLDBCMD}"
+        echo "env DYLD_FORCE_FLAT_NAMESPACE=1"            >> "${LLDBCMD}"
+        echo "run ${@:2}"                                 >> "${LLDBCMD}"
+        lldb "${1}" -s "${LLDBCMD}"
+      fi
     fi
-    
+
     FOUND=1
     RV=${?}
     break
@@ -245,14 +287,14 @@ while [ "${LIBPATHS[CNT]}" != "" ]; do
 done
 
 # Report error if library not found
-if [ "${FOUND}" != "1" ]; then
+if [[ "${FOUND}" != "1" ]]; then
   echo "error: unable to determine path of ${LIBNAME}"
   exit 1
 fi
 
 # Process temporary output dir
-if [ "${OUTFILE}" == "" ]; then
-  if [ -f "${TMPLOG}" ]; then
+if [[ "${OUTFILE}" == "" ]]; then
+  if [[ -f "${TMPLOG}" ]]; then
     cat "${TMPLOG}" >&2
   else
     echo "error: unable to preload libheapusage"
