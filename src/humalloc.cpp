@@ -53,7 +53,6 @@ struct hu_alloc_info
 };
 
 static std::unordered_set<void*>* hu_user_addrs = nullptr;
-static std::unordered_set<void*>* hu_free_addrs = nullptr;
 static std::unordered_map<void*, hu_alloc_info>* hu_active_allocs = nullptr;
 static std::queue<hu_alloc_info>* hu_quarantine_allocs = nullptr;
 static size_t hu_quarantine_size = 0;
@@ -65,7 +64,7 @@ static inline size_t hu_round_up(size_t num_to_round, size_t multiple)
 {
   if (multiple == 0) return num_to_round;
 
-  int remainder = num_to_round % multiple;
+  size_t remainder = num_to_round % multiple;
   if (remainder == 0) return num_to_round;
 
   return (num_to_round + multiple - remainder);
@@ -154,7 +153,6 @@ void hu_malloc_init(bool overflow, bool useafterfree, size_t minsize)
   hu_user_addrs = new std::unordered_set<void*>();
   hu_active_allocs = new std::unordered_map<void*, hu_alloc_info>();
   hu_quarantine_allocs = new std::queue<hu_alloc_info>();
-  hu_free_addrs = new std::unordered_set<void*>();
  
   hu_malloc_inited = true;
 }
@@ -215,7 +213,10 @@ void* hu_malloc(size_t user_size)
     sys_ptr = nullptr;
   }
 
-  assert(sys_ptr != nullptr);
+  if (sys_ptr == nullptr)
+  {
+    return nullptr;
+  }
 
   /* Add post fence protected page, if buffer overflow detection is enabled */
   void* post_fence_ptr = nullptr;
@@ -244,8 +245,7 @@ void* hu_malloc(size_t user_size)
   allocInfo.sys_size = sys_size;
   hu_active_allocs->insert(std::pair<void*, hu_alloc_info>(user_ptr, allocInfo));
 
-  hu_user_addrs->insert(user_ptr);  
-  hu_free_addrs->erase(user_ptr);
+  hu_user_addrs->insert(user_ptr);
 
   return user_ptr;
 }
@@ -275,7 +275,6 @@ void hu_free(void* user_ptr)
   }
 
   hu_active_allocs->erase(user_ptr);
-  hu_free_addrs->insert(user_ptr);
 
   if (hu_useafterfree)
   {
@@ -317,10 +316,17 @@ void* hu_calloc(size_t count, size_t size)
     return calloc(count, size);
   }
 
-  void* ptr = hu_malloc(count * size);
+  // check for overflow like native calloc
+  size_t total = count * size;
+  if (total / count != size)
+  {
+    return nullptr;
+  }
+
+  void* ptr = hu_malloc(total);
   if (ptr != nullptr)
   {
-    memset(ptr, 0, count * size);
+    memset(ptr, 0, total);
   }
   
   return ptr;

@@ -28,6 +28,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #if defined(__APPLE__)
@@ -78,8 +79,8 @@ static unsigned long long allocinfo_total_alloc_bytes = 0;
 static unsigned long long allocinfo_current_alloc_bytes = 0;
 static unsigned long long allocinfo_peak_alloc_bytes = 0;
 
-static std::map<void*, hu_allocinfo_t>* allocations = nullptr;
-static std::map<void*, hu_allocinfo_t>* freed_allocations = nullptr;
+static std::unordered_map<void*, hu_allocinfo_t>* allocations = nullptr;
+static std::unordered_map<void*, hu_allocinfo_t>* freed_allocations = nullptr;
 static std::map<void*, std::string>* symbol_cache = nullptr;
 static std::map<void*, std::string>* objfile_cache = nullptr;
 
@@ -132,8 +133,8 @@ void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool use
     fprintf(stderr, "heapusage error: no output file specified\n");
   }
 
-  allocations = new std::map<void*, hu_allocinfo_t>();
-  freed_allocations = new std::map<void*, hu_allocinfo_t>();
+  allocations = new std::unordered_map<void*, hu_allocinfo_t>();
+  freed_allocations = new std::unordered_map<void*, hu_allocinfo_t>();
   symbol_cache = new std::map<void*, std::string>();
   objfile_cache = new std::map<void*, std::string>();
 }
@@ -227,7 +228,7 @@ void log_event(int event, void *ptr, size_t size)
   {
     if (event == EVENT_MALLOC)
     {
-      if (hu_log_free)
+      if (hu_useafterfree || hu_log_free)
       {
         freed_allocations->erase(ptr);
       }
@@ -253,7 +254,7 @@ void log_event(int event, void *ptr, size_t size)
     }
       else if (event == EVENT_FREE)
       {
-        std::map<void*, hu_allocinfo_t>::iterator allocation = allocations->find(ptr);
+        auto allocation = allocations->find(ptr);
         if (allocation != allocations->end())
         {
           allocinfo_current_alloc_bytes -= allocation->second.size;
@@ -299,6 +300,8 @@ void log_event(int event, void *ptr, size_t size)
                 fclose(f);
               }
             }
+
+            freed_allocations->erase(allocation);
           }
         }
 
@@ -327,12 +330,10 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
       log_print_callstack(f, callstack_depth, callstack);
 
       bool found = false;
-      std::map<void*, hu_allocinfo_t>::iterator allocation;
-      allocation = allocations->lower_bound((char*)ptr + 1);
-      if (allocation != allocations->begin())
+
+      /* Search active allocations for the block containing the faulting address */
+      for (auto allocation = allocations->begin(); allocation != allocations->end(); ++allocation)
       {
-        --allocation;
-        
         if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
             (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
         {
@@ -341,44 +342,50 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
 
           fprintf(f, "==%d==  Address %p is %ld bytes after a block of size %ld alloc'd at:\n",
                   pid, ptr, offset, allocation->second.size);
-          
+
           log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
+          break;
         }
       }
 
-      allocation = freed_allocations->lower_bound((char*)ptr + 1);
-      if (!found && (allocation != freed_allocations->begin()))
+      /* Search freed allocations if not found in active */
+      if (!found)
       {
-        --allocation;
-        
-        if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
-            (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+        for (auto allocation = freed_allocations->begin(); allocation != freed_allocations->end(); ++allocation)
         {
-          found = true;
-          size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
+          if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
+              (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+          {
+            found = true;
+            size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
 
-          fprintf(f, "==%d==  Address %p is %ld bytes after a block of size %ld free'd at:\n",
-                  pid, ptr, offset, allocation->second.size);
-          
-          log_print_callstack(f, allocation->second.free_callstack_depth,
-                              allocation->second.free_callstack);
+            fprintf(f, "==%d==  Address %p is %ld bytes after a block of size %ld free'd at:\n",
+                    pid, ptr, offset, allocation->second.size);
+
+            log_print_callstack(f, allocation->second.free_callstack_depth,
+                                allocation->second.free_callstack);
+
+            fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
+            log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
+            break;
+          }
+          else if ((ptr >= ((char*)allocation->second.ptr)) &&
+                   (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+          {
+            found = true;
+            size_t offset = (char*)ptr - ((char*)allocation->second.ptr);
+
+            fprintf(f, "==%d==  Address %p is %ld bytes inside a block of size %ld free'd at:\n",
+                    pid, ptr, offset, allocation->second.size);
+
+            log_print_callstack(f, allocation->second.free_callstack_depth,
+                                allocation->second.free_callstack);
+
+            fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
+            log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
+            break;
+          }
         }
-        else if ((ptr >= ((char*)allocation->second.ptr)) &&
-                 (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
-        {
-          found = true;
-          size_t offset = (char*)ptr - ((char*)allocation->second.ptr);
-
-          fprintf(f, "==%d==  Address %p is %ld bytes inside a block of size %ld free'd at:\n",
-                  pid, ptr, offset, allocation->second.size);
-          
-          log_print_callstack(f, allocation->second.free_callstack_depth,
-                              allocation->second.free_callstack);
-        }        
- 
-        fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
-
-        log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
       }
       
       fprintf(f, "==%d== \n", pid);
