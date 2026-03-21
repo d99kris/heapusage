@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2021-2026 Kristofer Berggren
  * All rights reserved.
- * 
+ *
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
  *
  */
@@ -22,7 +22,7 @@
 #include <signal.h>
 #include <unistd.h>
 
-#if defined (__APPLE__)
+#if defined(__APPLE__)
 #include <malloc/malloc.h>
 #endif
 
@@ -146,15 +146,15 @@ void hu_malloc_init(bool overflow, bool useafterfree, size_t minsize, int quaran
   sigemptyset(&sa.sa_mask);
   sa.sa_sigaction = hu_sig_handler;
 #if defined(__linux__)
-  sigaction(SIGSEGV, &sa, NULL);
+  sigaction(SIGSEGV, &sa, nullptr);
 #elif defined(__APPLE__)
-  sigaction(SIGBUS, &sa, NULL);
+  sigaction(SIGBUS, &sa, nullptr);
 #endif
 
   hu_user_addrs = new std::unordered_set<void*>();
   hu_active_allocs = new std::unordered_map<void*, hu_alloc_info>();
   hu_quarantine_allocs = new std::queue<hu_alloc_info>();
- 
+
   hu_malloc_inited = true;
 }
 
@@ -166,7 +166,7 @@ void hu_malloc_cleanup()
 
 /*
  * humalloc implements a simple fenced malloc where each user allocation has
- * a read/write-protected page immedately after. Page size is system dependent, 
+ * a read/write-protected page immedately after. Page size is system dependent,
  * but commonly 4 KB.
  *
  *       <------------- N pages -------------> <--- 1 page --->
@@ -179,8 +179,8 @@ void hu_malloc_cleanup()
  *
  * Free'd user allocations are placed in a quarantine queue and fully
  * read/write protected from further access. The queue has a max size (currently
- * 10% of physical system RAM), and once full, the oldest allocations are made 
- * unprotected and free'd/returned back to the OS. At this point access to a 
+ * 10% of physical system RAM), and once full, the oldest allocations are made
+ * unprotected and free'd/returned back to the OS. At this point access to a
  * free'd allocation cannot be detected anymore.
  *
  */
@@ -226,7 +226,7 @@ void* hu_malloc(size_t user_size)
     post_fence_ptr = (char*)sys_ptr + sys_size - hu_page_size;
     hu_mprotect(post_fence_ptr, hu_page_size, PROT_NONE);
   }
-  
+
   /* Calculate user pointer */
   void* user_ptr = nullptr;
   if (hu_overflow && (post_fence_ptr != nullptr))
@@ -265,7 +265,7 @@ void hu_free(void* user_ptr)
     free(user_ptr);
     return;
   }
-  
+
   /* Get allocation details */
   hu_alloc_info allocInfo;
   if (!hu_get_allocinfo(user_ptr, &allocInfo))
@@ -281,7 +281,7 @@ void hu_free(void* user_ptr)
   {
     /* Quarantine allocation if use-after-free detection is enabled */
     hu_mprotect(allocInfo.sys_ptr, allocInfo.sys_size, PROT_NONE);
-    
+
     hu_quarantine_allocs->push(allocInfo);
     hu_quarantine_size += allocInfo.sys_size;
 
@@ -293,7 +293,7 @@ void hu_free(void* user_ptr)
       hu_quarantine_allocs->pop();
 
       hu_mprotect(delete_alloc_info.sys_ptr, delete_alloc_info.sys_size, PROT_READ | PROT_WRITE);
-      hu_quarantine_size -= delete_alloc_info.sys_size;    
+      hu_quarantine_size -= delete_alloc_info.sys_size;
       free(delete_alloc_info.sys_ptr);
       hu_log_remove_freed_allocation(delete_alloc_info.user_ptr);
     }
@@ -330,11 +330,11 @@ void* hu_calloc(size_t count, size_t size)
   {
     memset(ptr, 0, total);
   }
-  
+
   return ptr;
 }
 
-void* hu_realloc(void *user_ptr, size_t user_size)
+void* hu_realloc(void* user_ptr, size_t user_size)
 {
   if (!hu_malloc_inited)
   {
@@ -345,8 +345,8 @@ void* hu_realloc(void *user_ptr, size_t user_size)
   {
     void* new_user_ptr = hu_malloc(user_size);
     return new_user_ptr;
-  }  
-    
+  }
+
   if (user_size == 0)
   {
     hu_free(user_ptr);
@@ -383,7 +383,7 @@ size_t hu_malloc_size(void* user_ptr)
   }
   else
   {
-#if defined (__APPLE__)
+#if defined(__APPLE__)
     return malloc_size(user_ptr);
 #else
     return 0;

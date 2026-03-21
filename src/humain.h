@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2017-2026 Kristofer Berggren
  * All rights reserved.
- * 
+ *
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
  *
  */

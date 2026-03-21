@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2021-2026 Kristofer Berggren
  * All rights reserved.
- * 
+ *
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
  *
  */
@@ -15,6 +15,6 @@ void hu_malloc_cleanup();
 void* hu_malloc(size_t user_size);
 void hu_free(void* ptr);
 void* hu_calloc(size_t count, size_t size);
-void* hu_realloc(void *ptr, size_t size);
+void* hu_realloc(void* ptr, size_t size);
 size_t hu_malloc_size(void* ptr);
 bool hu_quarantine_was_evicted();

@@ -20,6 +20,7 @@ BUILD="0"
 TESTS="0"
 DOC="0"
 INSTALL="0"
+SRC="0"
 YES=""
 
 case "${1%/}" in
@@ -44,6 +45,10 @@ case "${1%/}" in
   install)
     BUILD="1"
     INSTALL="1"
+    ;;
+
+  src)
+    SRC="1"
     ;;
 
   all)
@@ -74,6 +79,7 @@ case "${1%/}" in
     echo "  tests     - perform build and run tests"
     echo "  doc       - perform build and generate documentation"
     echo "  install   - perform build and install"
+    echo "  src       - perform source code reformatting"
     echo "  all       - perform all actions above"
     echo ""
     exit 1
@@ -143,6 +149,13 @@ if [[ "${INSTALL}" == "1" ]]; then
   else
     exiterr "install failed (unsupported os ${OS}), exiting."
   fi
+fi
+
+# src
+if [[ "${SRC}" == "1" ]]; then
+  uncrustify --update-config-with-doc -c etc/uncrustify.cfg -o etc/uncrustify.cfg && \
+  uncrustify -c etc/uncrustify.cfg --replace --no-backup src/*.{cpp,h} \
+    || exiterr "uncrustify failed, exiting."
 fi
 
 # exit

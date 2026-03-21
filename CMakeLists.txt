@@ -72,6 +72,12 @@ target_compile_options(ex004 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex005 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex006 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex007 PRIVATE ${TEST_COMPILE_OPTIONS})
+
+# Silence use-after-free warnings for tests that intentionally trigger such errors
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_compile_options(ex002 PRIVATE -Wno-use-after-free)
+  target_compile_options(ex005 PRIVATE -Wno-use-after-free)
+endif()
 target_link_libraries(ex007 heapusage)
 
 configure_file(tests/test001 ${CMAKE_CURRENT_BINARY_DIR}/test001 COPYONLY)
