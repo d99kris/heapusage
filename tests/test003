@@ -5,7 +5,7 @@ RV=0
 TMPDIR=$(mktemp -d -t heapusage.XXXXXX)
 
 # Run application
-./heapusage -m 0 -o ${TMPDIR}/out.txt ./ex003 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
+./heapusage -t leak -m 0 -o ${TMPDIR}/out.txt ./ex003 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
 
 # Expected out.txt:
 # Heapusage - https://github.com/d99kris/heapusage

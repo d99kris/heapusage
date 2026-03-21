@@ -23,14 +23,15 @@ showusage()
   echo "   -q <pct>        quarantine memory limit as percentage of RAM (default 10)"
   echo "   -r              log repeated errors from same call site"
   echo "   -s <SIG>        enable on-demand logging when signalled SIG signal"
-  echo "   -t <tools>      analysis tools to use (default \"leak\")"
+  echo "   -t <tools>      analysis tools to use (default \"error\")"
   echo "   PROG            program to run and analyze"
   echo "   [ARGS]          optional arguments to the program"
   echo "   -h,--help       display this help and exit"
   echo "   -v,--version    output version information and exit"
   echo ""
   echo "Supported tools (for option -t):"
-  echo "   all             enables all supported tools below"
+  echo "   all             enables double-free, leak, overflow and use-after-free"
+  echo "   error           enables double-free, overflow and use-after-free"
   echo "   double-free     detect free'ing of buffers already free'd"
   echo "   leak            detect memory allocations never free'd"
   echo "   overflow        detect buffer overflows, i.e. access beyond"
@@ -38,8 +39,11 @@ showusage()
   echo "   use-after-free  detect access to free'd memory buffers"
   echo ""
   echo "Examples:"
-  echo "heapusage -t leak,overflow -m 2048 ./ex001"
-  echo "   analyze heap allocations of minimum 2048 bytes for leaks and overflows."
+  echo "heapusage ./ex001"
+  echo "   analyze heap for double-free, overflow, and use-after-free errors."
+  echo ""
+  echo "heapusage -t leak ./ex001"
+  echo "   analyze heap for memory leaks."
   echo ""
   echo "heapusage -t all -m 0 ./ex002"
   echo "   analyze heap allocations of any size with all tools."
@@ -50,7 +54,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.26"
+  echo "heapusage v2.27"
   echo ""
   echo "Copyright (C) 2017-2026 Kristofer Berggren"
   echo ""
@@ -80,7 +84,7 @@ OUTFILE=""
 QUARANTINE=""
 REPEAT="0"
 SIGNO=""
-TOOLS="leak"
+TOOLS="error"
 while getopts "?difm:no:q:rs:t:" OPT; do
   case "${OPT}" in
   \?)
@@ -204,6 +208,11 @@ do
     ;;
   double-free)
     DOUBLEFREE="1"
+    ;;
+  error)
+    DOUBLEFREE="1"
+    OVERFLOW="1"
+    USEAFTERFREE="1"
     ;;
   leak)
     LEAK="1"

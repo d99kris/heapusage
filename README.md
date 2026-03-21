@@ -23,29 +23,28 @@ is being cleaned up.
 Example Usage
 =============
 
-    $ heapusage ./ex001
-    ==2933== Heapusage - https://github.com/d99kris/heapusage
-    ==2933== 
-    ==2933== HEAP SUMMARY:
-    ==2933==     in use at exit: 12221 bytes in 4 blocks
-    ==2933==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
-    ==2933==    peak heap usage: 13332 bytes allocated
-    ==2933== 
-    ==2933== 6666 bytes in 3 block(s) are lost, originally allocated at:
-    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
-    ==2933==    at 0x00005611e856c1a4: main (ex001.c:29)
-    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
-    ==2933==    at 0x00005611e856c0ae: _start
-    ==2933== 
-    ==2933== 5555 bytes in 1 block(s) are lost, originally allocated at:
-    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
-    ==2933==    at 0x00005611e856c17f: main (ex001.c:19)
-    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
-    ==2933==    at 0x00005611e856c0ae: _start
-    ==2933== 
-    ==2933== LEAK SUMMARY:
-    ==2933==    definitely lost: 12221 bytes in 4 blocks
-    ==2933== 
+    $ heapusage -t leak ./ex001
+    Heapusage - https://github.com/d99kris/heapusage
+    Command: ./ex001
+    Process: 34634
+
+    HEAP SUMMARY:
+        in use at exit: 12221 bytes in 4 blocks
+      total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
+       peak heap usage: 13332 bytes allocated
+    
+    6666 bytes in 3 block(s) are lost, originally allocated at:
+       at 0x00000001006e18b8: malloc_wrap + 192
+       at 0x00000001006bc850: main + 96
+       at 0x000000019ac3eb98: start + 6076
+    
+    5555 bytes in 1 block(s) are lost, originally allocated at:
+       at 0x00000001006e18b8: malloc_wrap + 192
+       at 0x00000001006bc808: main + 24
+       at 0x000000019ac3eb98: start + 6076
+    
+    LEAK SUMMARY:
+       definitely lost: 12221 bytes in 4 blocks
 
 Supported Platforms
 ===================
@@ -105,7 +104,7 @@ Options:
            enable on-demand logging when signalled SIG signal
 
     -t <tools>
-           analysis tools to use (default "leak")
+           analysis tools to use (default "error")
 
     PROG   program to run and analyze
 
@@ -118,7 +117,9 @@ Options:
 
 Supported tools (for option -t):
 
-    all    enables all supported tools below
+    all    enables double-free, leak, overflow and use-after-free
+
+    error  enables double-free, overflow and use-after-free
 
     double-free
            detect free'ing of buffers already free'd
@@ -133,18 +134,21 @@ Supported tools (for option -t):
 
 Examples:
 
-    heapusage -t leak,overflow -m 2048 ./ex001
-           analyze heap allocations of minimum 2048 bytes for leaks and overflows.
+    heapusage ./ex001
+           analyze heap for double-free, overflow, and use-after-free errors.
+
+    heapusage -t leak ./ex001
+           analyze heap for memory leaks.
 
     heapusage -t all -m 0 ./ex002
            analyze heap allocations of any size with all tools.
 
 Output Format
 =============
-Example output:
+Example output (with `-t leak`):
 
     ==2933== Heapusage - https://github.com/d99kris/heapusage
-    ==2933== 
+    ==2933==
     ==2933== HEAP SUMMARY:
     ==2933==     in use at exit: 12221 bytes in 4 blocks
     ==2933==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
