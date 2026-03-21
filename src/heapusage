@@ -5,7 +5,7 @@
 #
 # heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
 
-HU_VER="2.31"
+HU_VER="2.32"
 
 showusage()
 {
@@ -290,7 +290,8 @@ if [[ "${OUTFILE}" == "" ]]; then
   # Create temporary output dir and set up log file path
   TMPLOG="${TMP}/heapusage.log"
 else
-  # Clear temp log path, just to be safe
+  # Remove any pre-existing output file so the post-run check can detect preload failure
+  rm -f "${OUTFILE}"
   TMPLOG=""
 fi
 
