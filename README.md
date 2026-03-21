@@ -32,33 +32,32 @@ Example Usage
         in use at exit: 12221 bytes in 4 blocks
       total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
        peak heap usage: 13332 bytes allocated
-    
+
     6666 bytes in 3 block(s) are lost, originally allocated at:
        at 0x00000001006e18b8: malloc_wrap + 192
        at 0x00000001006bc850: main + 96
        at 0x000000019ac3eb98: start + 6076
-    
+
     5555 bytes in 1 block(s) are lost, originally allocated at:
        at 0x00000001006e18b8: malloc_wrap + 192
        at 0x00000001006bc808: main + 24
        at 0x000000019ac3eb98: start + 6076
-    
+
     LEAK SUMMARY:
        definitely lost: 12221 bytes in 4 blocks
 
 Supported Platforms
 ===================
-Heapusage is primarily developed and tested on Linux, but basic
-functionality should work in macOS as well. Current version has been tested on:
-- macOS Big Sur 11.0
-- Ubuntu 20.04 LTS
+Heapusage is primarily developed and tested on macOS, but basic
+functionality should work on Linux as well. Current version has been tested on:
+- macOS Sequoia 15.7
+- Ubuntu 24.04 LTS
 
 Limitation: On macOS this tool relies on code injection using
 DYLD_INSERT_LIBRARIES, which generally does not work with third-party
 applications in a standard system. Using it on (your own) applications built
 from source should work fine though. See this
-[FAQ](https://github.com/d99kris/heapusage#1-what-can-cause-error-unable-to-preload-libheapusage)
-for more details.
+[FAQ](https://github.com/d99kris/heapusage#1-what-can-cause-error-unable-to-preload-libheapusage-on-macos) for more details.
 
 Installation
 ============
@@ -149,28 +148,27 @@ Output Format
 =============
 Example output (with `-t leak`):
 
-    ==2933== Heapusage - https://github.com/d99kris/heapusage
-    ==2933==
-    ==2933== HEAP SUMMARY:
-    ==2933==     in use at exit: 12221 bytes in 4 blocks
-    ==2933==   total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
-    ==2933==    peak heap usage: 13332 bytes allocated
-    ==2933== 
-    ==2933== 6666 bytes in 3 block(s) are lost, originally allocated at:
-    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
-    ==2933==    at 0x00005611e856c1a4: main (ex001.c:29)
-    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
-    ==2933==    at 0x00005611e856c0ae: _start
-    ==2933== 
-    ==2933== 5555 bytes in 1 block(s) are lost, originally allocated at:
-    ==2933==    at 0x00007fd04d062c88: malloc (humain.cpp:154)
-    ==2933==    at 0x00005611e856c17f: main (ex001.c:19)
-    ==2933==    at 0x00007fd04ce470b3: __libc_start_main
-    ==2933==    at 0x00005611e856c0ae: _start
-    ==2933== 
-    ==2933== LEAK SUMMARY:
-    ==2933==    definitely lost: 12221 bytes in 4 blocks
-    ==2933== 
+    Heapusage - https://github.com/d99kris/heapusage
+
+    HEAP SUMMARY:
+        in use at exit: 12221 bytes in 4 blocks
+      total heap usage: 5 allocs, 1 frees, 13332 bytes allocated
+       peak heap usage: 13332 bytes allocated
+
+    6666 bytes in 3 block(s) are lost, originally allocated at:
+       at 0x00007fd04d062c88: malloc (humain.cpp:154)
+       at 0x00005611e856c1a4: main (ex001.c:29)
+       at 0x00007fd04ce470b3: __libc_start_main
+       at 0x00005611e856c0ae: _start
+
+    5555 bytes in 1 block(s) are lost, originally allocated at:
+       at 0x00007fd04d062c88: malloc (humain.cpp:154)
+       at 0x00005611e856c17f: main (ex001.c:19)
+       at 0x00007fd04ce470b3: __libc_start_main
+       at 0x00005611e856c0ae: _start
+
+    LEAK SUMMARY:
+       definitely lost: 12221 bytes in 4 blocks
 
 Source code filename and line numbers are only supported on Linux, when package
 binutils-dev is available. On macOS one can use atos to determine source code
