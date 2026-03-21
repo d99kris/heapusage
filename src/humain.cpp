@@ -242,13 +242,16 @@ extern "C"
 void *malloc(size_t size)
 {
   if (hu_bypass) return __libc_malloc(size);
-  
+
   hu_recursion_guard guard;
   if (guard.is_recursive_call()) return __libc_malloc(size);
 
   hu_lock_guard lock;
   void *ptr = hu_enable_humalloc ? hu_malloc(size) : __libc_malloc(size);
-  log_event(EVENT_MALLOC, ptr, size);
+  if (size > 0)
+  {
+    log_event(EVENT_MALLOC, ptr, size);
+  }
 
   return ptr;
 }
@@ -275,8 +278,11 @@ void *calloc(size_t nmemb, size_t size)
   if (guard.is_recursive_call()) return __libc_calloc(nmemb, size);
 
   hu_lock_guard lock;
-  void *ptr = hu_enable_humalloc ? hu_calloc(nmemb, size) : __libc_calloc(nmemb, size);;
-  log_event(EVENT_MALLOC, ptr, nmemb * size);
+  void *ptr = hu_enable_humalloc ? hu_calloc(nmemb, size) : __libc_calloc(nmemb, size);
+  if ((nmemb > 0) && (size > 0))
+  {
+    log_event(EVENT_MALLOC, ptr, nmemb * size);
+  }
 
   return ptr;
 }
@@ -322,13 +328,16 @@ extern "C"
 void *malloc_wrap(size_t size)
 {
   if (hu_bypass) return malloc(size);
-  
+
   hu_recursion_guard guard;
   if (guard.is_recursive_call()) return malloc(size);
 
   hu_lock_guard lock;
   void *ptr = hu_enable_humalloc ? hu_malloc(size) : malloc(size);
-  log_event(EVENT_MALLOC, ptr, size);
+  if (size > 0)
+  {
+    log_event(EVENT_MALLOC, ptr, size);
+  }
 
   return ptr;
 }
@@ -357,8 +366,11 @@ void* calloc_wrap(size_t nmemb, size_t size)
   if (guard.is_recursive_call()) return calloc(nmemb, size);
 
   hu_lock_guard lock;
-  void *ptr = hu_enable_humalloc ? hu_calloc(nmemb, size) : calloc(nmemb, size);;
-  log_event(EVENT_MALLOC, ptr, nmemb * size);
+  void *ptr = hu_enable_humalloc ? hu_calloc(nmemb, size) : calloc(nmemb, size);
+  if ((nmemb > 0) && (size > 0))
+  {
+    log_event(EVENT_MALLOC, ptr, nmemb * size);
+  }
 
   return ptr;
 }
