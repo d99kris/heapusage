@@ -45,9 +45,10 @@ static bool hu_enable_humalloc = false;
 static bool hu_bypass = false;
 static bool hu_bypass_saved = false;
 
-/* Recursion detection */
-static int hu_callcount = 0;
-static std::recursive_mutex* hu_recursive_mutex = nullptr;
+/* Recursion detection (thread-local, no lock needed) */
+static thread_local int hu_callcount = 0;
+/* Mutex protecting shared data structures (non-recursive) */
+static std::mutex* hu_mutex = nullptr;
 
 #if defined(__GLIBC__)
 extern "C" void __libc_freeres();
@@ -71,35 +72,27 @@ extern "C" void hu_report()
 
 /* ----------- Local Functions ----------------------------------- */
 /*
- * hu_recursion_checker provides two functionalities; effectively a scoped
- * lock ensuring single-thread access to underlying allocation functions - and
- * a calldepth counter to provide recursion detection.
+ * hu_recursion_guard uses a thread-local call counter to detect recursion
+ * (e.g. malloc called from inside log_event's std::map operations).
+ * No mutex is needed — recursion is inherently per-thread.
  */
-class hu_recursion_checker
+class hu_recursion_guard
 {
 public:
-  hu_recursion_checker()
-  {
-    if (hu_recursive_mutex != nullptr)
-    {
-      hu_recursive_mutex->lock();
-    }
-    ++hu_callcount;
-  }
+  hu_recursion_guard() { ++hu_callcount; }
+  ~hu_recursion_guard() { --hu_callcount; }
+  bool is_recursive_call() { return (hu_callcount > 1); }
+};
 
-  ~hu_recursion_checker()
-  {
-    --hu_callcount;
-    if (hu_recursive_mutex != nullptr)
-    {
-      hu_recursive_mutex->unlock();
-    }
-  }
-
-  bool is_recursive_call()
-  {
-    return (hu_callcount > 1);
-  }
+/*
+ * hu_lock_guard is a null-safe scoped mutex lock. Before hu_init runs,
+ * hu_mutex is nullptr and locking is skipped.
+ */
+class hu_lock_guard
+{
+public:
+  hu_lock_guard() { if (hu_mutex) hu_mutex->lock(); }
+  ~hu_lock_guard() { if (hu_mutex) hu_mutex->unlock(); }
 };
 
 static inline bool hu_get_env_bool(const char* name)
@@ -114,7 +107,7 @@ static void hu_atfork_prepare()
 {
   /*
    * When fork() is called, the child inherits mutex state from the parent.
-   * If the parent held hu_recursive_mutex during fork, the child will deadlock
+   * If the parent held hu_mutex during fork, the child will deadlock
    * when atfork handlers (e.g. _objc_atfork_child) call free(). Using
    * pthread_atfork, we set hu_bypass = true before the fork so allocation
    * wrappers pass through without touching the mutex. In the parent we
@@ -172,9 +165,9 @@ void __attribute__ ((constructor)) hu_init(void)
   log_init(hu_file, hu_doublefree, hu_nosyms, hu_minsize, hu_useafterfree, hu_leak,
            hu_command, hu_log_pid_prefix);
   
-  /* Init mutex for recursion detection */
+  /* Init mutex for shared data protection */
   hu_bypass = true;
-  hu_recursive_mutex = new std::recursive_mutex();
+  hu_mutex = new std::mutex();
   hu_bypass = false;
 
   /* Register fork safety handlers */
@@ -244,9 +237,10 @@ void *malloc(size_t size)
 {
   if (hu_bypass) return __libc_malloc(size);
   
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return __libc_malloc(size);
-  
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return __libc_malloc(size);
+
+  hu_lock_guard lock;
   void *ptr = hu_enable_humalloc ? hu_malloc(size) : __libc_malloc(size);
   log_event(EVENT_MALLOC, ptr, size);
 
@@ -258,9 +252,10 @@ void free(void* ptr)
 {
   if (hu_bypass) return __libc_free(ptr);
 
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return __libc_free(ptr);
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return __libc_free(ptr);
 
+  hu_lock_guard lock;
   hu_enable_humalloc ? hu_free(ptr) : __libc_free(ptr);
   log_event(EVENT_FREE, ptr, 0);
 }
@@ -270,9 +265,10 @@ void *calloc(size_t nmemb, size_t size)
 {
   if (hu_bypass) return __libc_calloc(nmemb, size);
 
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return __libc_calloc(nmemb, size);
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return __libc_calloc(nmemb, size);
 
+  hu_lock_guard lock;
   void *ptr = hu_enable_humalloc ? hu_calloc(nmemb, size) : __libc_calloc(nmemb, size);;
   log_event(EVENT_MALLOC, ptr, nmemb * size);
 
@@ -284,9 +280,10 @@ void *realloc(void *ptr, size_t size)
 { 
   if (hu_bypass) return __libc_realloc(ptr, size);
 
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return __libc_realloc(ptr, size);
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return __libc_realloc(ptr, size);
 
+  hu_lock_guard lock;
   void *newptr = hu_enable_humalloc ? hu_realloc(ptr, size) : __libc_realloc(ptr, size);
   if (ptr != nullptr)
   {
@@ -320,9 +317,10 @@ void *malloc_wrap(size_t size)
 {
   if (hu_bypass) return malloc(size);
   
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return malloc(size);
-  
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return malloc(size);
+
+  hu_lock_guard lock;
   void *ptr = hu_enable_humalloc ? hu_malloc(size) : malloc(size);
   log_event(EVENT_MALLOC, ptr, size);
 
@@ -335,9 +333,10 @@ void free_wrap(void* ptr)
 {
   if (hu_bypass) return free(ptr);
 
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return free(ptr);
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return free(ptr);
 
+  hu_lock_guard lock;
   hu_enable_humalloc ? hu_free(ptr) : free(ptr);
   log_event(EVENT_FREE, ptr, 0);
 }
@@ -348,9 +347,10 @@ void* calloc_wrap(size_t nmemb, size_t size)
 {
   if (hu_bypass) return calloc(nmemb, size);
 
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return calloc(nmemb, size);
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return calloc(nmemb, size);
 
+  hu_lock_guard lock;
   void *ptr = hu_enable_humalloc ? hu_calloc(nmemb, size) : calloc(nmemb, size);;
   log_event(EVENT_MALLOC, ptr, nmemb * size);
 
@@ -363,9 +363,10 @@ void* realloc_wrap(void *ptr, size_t size)
 {
   if (hu_bypass) return realloc(ptr, size);
 
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return realloc(ptr, size);
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return realloc(ptr, size);
 
+  hu_lock_guard lock;
   void *newptr = hu_enable_humalloc ? hu_realloc(ptr, size) : realloc(ptr, size);
   if (ptr != nullptr)
   {
@@ -386,9 +387,10 @@ size_t malloc_size_wrap(const void* ptr)
 {
   if (hu_bypass) return malloc_size(ptr);
 
-  hu_recursion_checker recursion_checker;
-  if (recursion_checker.is_recursive_call()) return malloc_size(ptr);
+  hu_recursion_guard guard;
+  if (guard.is_recursive_call()) return malloc_size(ptr);
 
+  hu_lock_guard lock;
   return hu_enable_humalloc ? hu_malloc_size(const_cast<void*>(ptr)) : malloc_size(ptr);
 }
 DYLD_INTERPOSE(malloc_size_wrap, malloc_size);
