@@ -1,7 +1,7 @@
 /*
  * humalloc.h
  *
- * Copyright (C) 2021 Kristofer Berggren
+ * Copyright (C) 2021-2026 Kristofer Berggren
  * All rights reserved.
  * 
  * heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
