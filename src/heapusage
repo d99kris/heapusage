@@ -21,6 +21,7 @@ showusage()
   echo "   -n              no symbol lookup (faster)"
   echo "   -o <path>       write output to specified file path, instead of stderr"
   echo "   -q <pct>        quarantine memory limit as percentage of RAM (default 10)"
+  echo "   -r              log repeated errors from same call site"
   echo "   -s <SIG>        enable on-demand logging when signalled SIG signal"
   echo "   -t <tools>      analysis tools to use (default \"leak\")"
   echo "   PROG            program to run and analyze"
@@ -49,7 +50,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.23"
+  echo "heapusage v2.24"
   echo ""
   echo "Copyright (C) 2017-2026 Kristofer Berggren"
   echo ""
@@ -77,9 +78,10 @@ MINSIZE="0"
 NOSYMS="0"
 OUTFILE=""
 QUARANTINE=""
+REPEAT="0"
 SIGNO=""
 TOOLS="leak"
-while getopts "?difm:no:q:s:t:" OPT; do
+while getopts "?difm:no:q:rs:t:" OPT; do
   case "${OPT}" in
   \?)
     showusage
@@ -102,6 +104,9 @@ while getopts "?difm:no:q:s:t:" OPT; do
     ;;
   q)
     QUARANTINE="${OPTARG}"
+    ;;
+  r)
+    REPEAT="1"
     ;;
   s)
     if ! [[ "${OPTARG}" =~ ^[0-9]+$ ]]; then
@@ -254,6 +259,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
       HU_SIGNO="${SIGNO}"                   \
       HU_COMMAND="${*}"                     \
       HU_LOGPID="${LOGPID}"                 \
+      HU_REPEAT="${REPEAT}"                 \
       LD_PRELOAD="${LIBPATH}"               \
       DYLD_INSERT_LIBRARIES="${LIBPATH}"    \
       DYLD_FORCE_FLAT_NAMESPACE=1           \
@@ -272,6 +278,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "set env HU_SIGNO=${SIGNO}"                  >> "${GDBCMD}"
         echo "set env HU_COMMAND=${*}"                    >> "${GDBCMD}"
         echo "set env HU_LOGPID=${LOGPID}"                >> "${GDBCMD}"
+        echo "set env HU_REPEAT=${REPEAT}"                >> "${GDBCMD}"
         echo "set env LD_PRELOAD=${LIBPATH}"              >> "${GDBCMD}"
         echo "set env DYLD_INSERT_LIBRARIES=${LIBPATH}"   >> "${GDBCMD}"
         echo "set env DYLD_FORCE_FLAT_NAMESPACE=1"        >> "${GDBCMD}"
@@ -290,6 +297,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "env HU_SIGNO=\"${SIGNO}\""                  >> "${LLDBCMD}"
         echo "env HU_COMMAND=\"${*}\""                    >> "${LLDBCMD}"
         echo "env HU_LOGPID=\"${LOGPID}\""                >> "${LLDBCMD}"
+        echo "env HU_REPEAT=\"${REPEAT}\""                >> "${LLDBCMD}"
         echo "env LD_PRELOAD=\"${LIBPATH}\""              >> "${LLDBCMD}"
         echo "env DYLD_INSERT_LIBRARIES=\"${LIBPATH}\""   >> "${LLDBCMD}"
         echo "env DYLD_FORCE_FLAT_NAMESPACE=1"            >> "${LLDBCMD}"

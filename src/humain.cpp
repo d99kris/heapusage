@@ -162,8 +162,9 @@ void __attribute__ ((constructor)) hu_init(void)
   /* Init logging */
   const char* hu_command = getenv("HU_COMMAND");
   bool hu_log_pid_prefix = hu_get_env_bool("HU_LOGPID");
+  bool hu_log_repeat = hu_get_env_bool("HU_REPEAT");
   log_init(hu_file, hu_doublefree, hu_nosyms, hu_minsize, hu_useafterfree, hu_leak,
-           hu_command, hu_log_pid_prefix);
+           hu_command, hu_log_pid_prefix, hu_log_repeat);
   
   /* Init mutex for shared data protection */
   hu_bypass = true;

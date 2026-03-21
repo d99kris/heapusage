@@ -70,6 +70,7 @@ static int hu_log_nosyms = 0;
 static size_t hu_log_minleak = 0;
 static bool hu_useafterfree = false;
 static bool hu_leak = false;
+static bool hu_log_repeat = false;
 static char hu_prefix[32] = "";
 
 static long hu_page_size = 0;
@@ -85,6 +86,10 @@ static std::unordered_map<void*, hu_allocinfo_t>* allocations = nullptr;
 static std::unordered_map<void*, hu_allocinfo_t>* freed_allocations = nullptr;
 static std::map<void*, std::string>* symbol_cache = nullptr;
 static std::map<void*, std::string>* objfile_cache = nullptr;
+static std::set<std::vector<void*>>* reported_invalid_dealloc_callstacks = nullptr;
+static std::set<std::vector<void*>>* reported_invalid_access_callstacks = nullptr;
+static unsigned long long total_invalid_dealloc_count = 0;
+static unsigned long long total_invalid_access_count = 0;
 
 
 /* ----------- Local Functions ----------------------------------- */
@@ -101,7 +106,7 @@ static std::string addr_to_symbol(void *addr);
 
 /* ----------- Global Functions ---------------------------------- */
 void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool useafterfree,
-              bool leak, const char* command, bool log_pid_prefix)
+              bool leak, const char* command, bool log_pid_prefix, bool log_repeat)
 {
   /* Config */
   hu_log_file = file;
@@ -110,6 +115,7 @@ void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool use
   hu_log_minleak = minsize;
   hu_useafterfree = useafterfree;
   hu_leak = leak;
+  hu_log_repeat = log_repeat;
 
   /* Get runtime info */
   pid = getpid();
@@ -147,6 +153,8 @@ void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool use
   freed_allocations = new std::unordered_map<void*, hu_allocinfo_t>();
   symbol_cache = new std::map<void*, std::string>();
   objfile_cache = new std::map<void*, std::string>();
+  reported_invalid_dealloc_callstacks = new std::set<std::vector<void*>>();
+  reported_invalid_access_callstacks = new std::set<std::vector<void*>>();
 }
 
 void log_enable(int flag)
@@ -287,27 +295,33 @@ void log_event(int event, void *ptr, size_t size)
             int callstack_depth = backtrace(callstack, MAX_CALL_STACK);
             if (log_is_valid_callstack(callstack_depth, callstack, false))
             {
-              FILE *f = fopen(hu_log_file, "a");
-              if (f)
+              total_invalid_dealloc_count++;
+              std::vector<void*> cs_key(callstack + 1, callstack + callstack_depth);
+              bool is_new = reported_invalid_dealloc_callstacks->insert(cs_key).second;
+              if (is_new || hu_log_repeat)
               {
-                fprintf(f, "%sInvalid deallocation at:\n", hu_prefix);
+                FILE *f = fopen(hu_log_file, "a");
+                if (f)
+                {
+                  fprintf(f, "%sInvalid deallocation at:\n", hu_prefix);
 
-                log_print_callstack(f, callstack_depth, callstack);
+                  log_print_callstack(f, callstack_depth, callstack);
 
-                fprintf(f, "%s Address %p is a block of size %ld free'd at:\n",
-                        hu_prefix, ptr, allocation->second.size);
+                  fprintf(f, "%s Address %p is a block of size %ld free'd at:\n",
+                          hu_prefix, ptr, allocation->second.size);
 
-                log_print_callstack(f, allocation->second.free_callstack_depth,
-                                    allocation->second.free_callstack);
+                  log_print_callstack(f, allocation->second.free_callstack_depth,
+                                      allocation->second.free_callstack);
 
-                fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
+                  fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
 
-                log_print_callstack(f, allocation->second.callstack_depth,
-                                    allocation->second.callstack);
+                  log_print_callstack(f, allocation->second.callstack_depth,
+                                      allocation->second.callstack);
 
-                fprintf(f, "%s\n", hu_prefix);
+                  fprintf(f, "%s\n", hu_prefix);
 
-                fclose(f);
+                  fclose(f);
+                }
               }
             }
 
@@ -332,36 +346,22 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
   int callstack_depth = backtrace(callstack, MAX_CALL_STACK);
   if (log_is_valid_callstack(callstack_depth, callstack, false))
   {
-    FILE *f = fopen(hu_log_file, "a");
-    if (f)
+    total_invalid_access_count++;
+    std::vector<void*> cs_key(callstack + 1, callstack + callstack_depth);
+    bool is_new = reported_invalid_access_callstacks->insert(cs_key).second;
+    if (is_new || hu_log_repeat)
     {
-      fprintf(f, "%sInvalid memory access at:\n", hu_prefix);
-
-      log_print_callstack(f, callstack_depth, callstack);
-
-      bool found = false;
-
-      /* Search active allocations for the block containing the faulting address */
-      for (auto allocation = allocations->begin(); allocation != allocations->end(); ++allocation)
+      FILE *f = fopen(hu_log_file, "a");
+      if (f)
       {
-        if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
-            (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
-        {
-          found = true;
-          size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
+        fprintf(f, "%sInvalid memory access at:\n", hu_prefix);
 
-          fprintf(f, "%s Address %p is %ld bytes after a block of size %ld alloc'd at:\n",
-                  hu_prefix, ptr, offset, allocation->second.size);
+        log_print_callstack(f, callstack_depth, callstack);
 
-          log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
-          break;
-        }
-      }
+        bool found = false;
 
-      /* Search freed allocations if not found in active */
-      if (!found)
-      {
-        for (auto allocation = freed_allocations->begin(); allocation != freed_allocations->end(); ++allocation)
+        /* Search active allocations for the block containing the faulting address */
+        for (auto allocation = allocations->begin(); allocation != allocations->end(); ++allocation)
         {
           if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
               (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
@@ -369,38 +369,58 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
             found = true;
             size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
 
-            fprintf(f, "%s Address %p is %ld bytes after a block of size %ld free'd at:\n",
+            fprintf(f, "%s Address %p is %ld bytes after a block of size %ld alloc'd at:\n",
                     hu_prefix, ptr, offset, allocation->second.size);
 
-            log_print_callstack(f, allocation->second.free_callstack_depth,
-                                allocation->second.free_callstack);
-
-            fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
-            log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
-            break;
-          }
-          else if ((ptr >= ((char*)allocation->second.ptr)) &&
-                   (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
-          {
-            found = true;
-            size_t offset = (char*)ptr - ((char*)allocation->second.ptr);
-
-            fprintf(f, "%s Address %p is %ld bytes inside a block of size %ld free'd at:\n",
-                    hu_prefix, ptr, offset, allocation->second.size);
-
-            log_print_callstack(f, allocation->second.free_callstack_depth,
-                                allocation->second.free_callstack);
-
-            fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
             log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
             break;
           }
         }
-      }
-      
-      fprintf(f, "%s\n", hu_prefix);
 
-      fclose(f);
+        /* Search freed allocations if not found in active */
+        if (!found)
+        {
+          for (auto allocation = freed_allocations->begin(); allocation != freed_allocations->end(); ++allocation)
+          {
+            if ((ptr >= ((char*)allocation->second.ptr + allocation->second.size)) &&
+                (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+            {
+              found = true;
+              size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
+
+              fprintf(f, "%s Address %p is %ld bytes after a block of size %ld free'd at:\n",
+                      hu_prefix, ptr, offset, allocation->second.size);
+
+              log_print_callstack(f, allocation->second.free_callstack_depth,
+                                  allocation->second.free_callstack);
+
+              fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
+              log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
+              break;
+            }
+            else if ((ptr >= ((char*)allocation->second.ptr)) &&
+                     (ptr <= ((char*)allocation->second.ptr + allocation->second.size + hu_page_size)))
+            {
+              found = true;
+              size_t offset = (char*)ptr - ((char*)allocation->second.ptr);
+
+              fprintf(f, "%s Address %p is %ld bytes inside a block of size %ld free'd at:\n",
+                      hu_prefix, ptr, offset, allocation->second.size);
+
+              log_print_callstack(f, allocation->second.free_callstack_depth,
+                                  allocation->second.free_callstack);
+
+              fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
+              log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
+              break;
+            }
+          }
+        }
+
+        fprintf(f, "%s\n", hu_prefix);
+
+        fclose(f);
+      }
     }
   }
 
@@ -458,6 +478,19 @@ void log_summary(bool ondemand)
   if (ondemand)
   {
     fprintf(f, "%sON DEMAND REPORT\n", hu_prefix);
+  }
+
+  /* Output warning summary */
+  if (total_invalid_dealloc_count > 0 || total_invalid_access_count > 0)
+  {
+    fprintf(f, "%sWARNING SUMMARY:\n", hu_prefix);
+    fprintf(f, "%s     deallocations: %llu unique (%llu total)\n", hu_prefix,
+            (unsigned long long)reported_invalid_dealloc_callstacks->size(),
+            total_invalid_dealloc_count);
+    fprintf(f, "%s     memory access: %llu unique (%llu total)\n", hu_prefix,
+            (unsigned long long)reported_invalid_access_callstacks->size(),
+            total_invalid_access_count);
+    fprintf(f, "%s\n", hu_prefix);
   }
 
   /* Output heap summary */
