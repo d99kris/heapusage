@@ -10,7 +10,7 @@ showusage()
   echo "Heapusage is a light-weight tool for finding heap memory errors in"
   echo "applications."
   echo ""
-  echo "Usage: heapusage [-d] [-i] [-m minsize] [-n] [-o path] [-q pct] [-s SIG] [-t tools] PROG [ARGS..]"
+  echo "Usage: heapusage [-d] [-i] [-m minsize] [-n] [-o path] [-q pct] [-r] [-s SIG] [-t tools] PROG [ARGS..]"
   echo "   or: heapusage --help"
   echo "   or: heapusage --version"
   echo ""
@@ -50,7 +50,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.24"
+  echo "heapusage v2.25"
   echo ""
   echo "Copyright (C) 2017-2026 Kristofer Berggren"
   echo ""
@@ -282,6 +282,9 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "set env LD_PRELOAD=${LIBPATH}"              >> "${GDBCMD}"
         echo "set env DYLD_INSERT_LIBRARIES=${LIBPATH}"   >> "${GDBCMD}"
         echo "set env DYLD_FORCE_FLAT_NAMESPACE=1"        >> "${GDBCMD}"
+        if [[ "$(uname)" == "Darwin" ]]; then
+          echo "break malloc_error_break"                 >> "${GDBCMD}"
+        fi
         echo "run"                                        >> "${GDBCMD}"
         gdb -x "${GDBCMD}" --args "${@:1}"
       else
@@ -301,6 +304,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "env LD_PRELOAD=\"${LIBPATH}\""              >> "${LLDBCMD}"
         echo "env DYLD_INSERT_LIBRARIES=\"${LIBPATH}\""   >> "${LLDBCMD}"
         echo "env DYLD_FORCE_FLAT_NAMESPACE=1"            >> "${LLDBCMD}"
+        echo "breakpoint set -n malloc_error_break"       >> "${LLDBCMD}"
         echo "run ${@:2}"                                 >> "${LLDBCMD}"
         lldb "${1}" -s "${LLDBCMD}"
       fi
