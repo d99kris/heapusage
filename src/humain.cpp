@@ -177,7 +177,10 @@ void __attribute__ ((constructor)) hu_init(void)
   hu_enable_humalloc = (hu_overflow || hu_useafterfree);
   if (hu_enable_humalloc)
   {
-    hu_malloc_init(hu_overflow, hu_useafterfree, hu_minsize);
+    const char* quarantine_env = getenv("HU_QUARANTINE");
+    int hu_quarantine_pct = (quarantine_env && quarantine_env[0]) ?
+      (int)strtoll(quarantine_env, NULL, 10) : 10;
+    hu_malloc_init(hu_overflow, hu_useafterfree, hu_minsize, hu_quarantine_pct);
   }
 
   /* Register signal handler */

@@ -39,6 +39,7 @@
 
 #include "hulog.h"
 #include "humain.h"
+#include "humalloc.h"
 
 
 /* ----------- Defines ------------------------------------------- */
@@ -490,6 +491,12 @@ void log_summary(bool ondemand)
   fprintf(f, "%s   definitely lost: %llu bytes in %llu blocks\n", hu_prefix,
          leak_total_bytes, leak_total_blocks);
   fprintf(f, "%s\n", hu_prefix);
+
+  if (hu_useafterfree && hu_quarantine_was_evicted())
+  {
+    fprintf(f, "%sWARNING: use-after-free tracking incomplete, quarantine memory limit exceeded\n", hu_prefix);
+    fprintf(f, "%s\n", hu_prefix);
+  }
 
   fclose(f);
 }

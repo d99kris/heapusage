@@ -10,7 +10,7 @@ showusage()
   echo "Heapusage is a light-weight tool for finding heap memory errors in"
   echo "applications."
   echo ""
-  echo "Usage: heapusage [-d] [-i] [-m minsize] [-n] [-o path] [-s SIG] [-t tools] PROG [ARGS..]"
+  echo "Usage: heapusage [-d] [-i] [-m minsize] [-n] [-o path] [-q pct] [-s SIG] [-t tools] PROG [ARGS..]"
   echo "   or: heapusage --help"
   echo "   or: heapusage --version"
   echo ""
@@ -20,6 +20,7 @@ showusage()
   echo "   -m <minsize>    min alloc size to enable analysis for (default 0)"
   echo "   -n              no symbol lookup (faster)"
   echo "   -o <path>       write output to specified file path, instead of stderr"
+  echo "   -q <pct>        quarantine memory limit as percentage of RAM (default 10)"
   echo "   -s <SIG>        enable on-demand logging when signalled SIG signal"
   echo "   -t <tools>      analysis tools to use (default \"leak\")"
   echo "   PROG            program to run and analyze"
@@ -48,7 +49,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.22"
+  echo "heapusage v2.23"
   echo ""
   echo "Copyright (C) 2017-2026 Kristofer Berggren"
   echo ""
@@ -75,9 +76,10 @@ LOGPID="0"
 MINSIZE="0"
 NOSYMS="0"
 OUTFILE=""
+QUARANTINE=""
 SIGNO=""
 TOOLS="leak"
-while getopts "?difm:no:s:t:" OPT; do
+while getopts "?difm:no:q:s:t:" OPT; do
   case "${OPT}" in
   \?)
     showusage
@@ -97,6 +99,9 @@ while getopts "?difm:no:s:t:" OPT; do
     ;;
   o)
     OUTFILE="${OPTARG}"
+    ;;
+  q)
+    QUARANTINE="${OPTARG}"
     ;;
   s)
     if ! [[ "${OPTARG}" =~ ^[0-9]+$ ]]; then
@@ -245,6 +250,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
       HU_FILE="${TMPLOG}${OUTFILE}"         \
       HU_MINSIZE="${MINSIZE}"               \
       HU_NOSYMS="${NOSYMS}"                 \
+      HU_QUARANTINE="${QUARANTINE}"         \
       HU_SIGNO="${SIGNO}"                   \
       HU_COMMAND="${*}"                     \
       HU_LOGPID="${LOGPID}"                 \
@@ -262,6 +268,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "set env HU_FILE=${TMPLOG}${OUTFILE}"        >> "${GDBCMD}"
         echo "set env HU_MINSIZE=${MINSIZE}"              >> "${GDBCMD}"
         echo "set env HU_NOSYMS=${NOSYMS}"                >> "${GDBCMD}"
+        echo "set env HU_QUARANTINE=${QUARANTINE}"        >> "${GDBCMD}"
         echo "set env HU_SIGNO=${SIGNO}"                  >> "${GDBCMD}"
         echo "set env HU_COMMAND=${*}"                    >> "${GDBCMD}"
         echo "set env HU_LOGPID=${LOGPID}"                >> "${GDBCMD}"
@@ -279,6 +286,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "env HU_FILE=\"${TMPLOG}${OUTFILE}\""        >> "${LLDBCMD}"
         echo "env HU_MINSIZE=\"${MINSIZE}\""              >> "${LLDBCMD}"
         echo "env HU_NOSYMS=\"${NOSYMS}\""                >> "${LLDBCMD}"
+        echo "env HU_QUARANTINE=\"${QUARANTINE}\""        >> "${LLDBCMD}"
         echo "env HU_SIGNO=\"${SIGNO}\""                  >> "${LLDBCMD}"
         echo "env HU_COMMAND=\"${*}\""                    >> "${LLDBCMD}"
         echo "env HU_LOGPID=\"${LOGPID}\""                >> "${LLDBCMD}"

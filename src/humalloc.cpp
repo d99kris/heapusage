@@ -57,6 +57,7 @@ static std::unordered_map<void*, hu_alloc_info>* hu_active_allocs = nullptr;
 static std::queue<hu_alloc_info>* hu_quarantine_allocs = nullptr;
 static size_t hu_quarantine_size = 0;
 static size_t hu_quarantine_max_size = 0;
+static bool hu_quarantine_evicted = false;
 
 
 /* ----------- Local Functions ----------------------------------- */
@@ -130,15 +131,15 @@ static int hu_mprotect(void* addr, size_t len, int prot)
 
 
 /* ----------- Global Functions ---------------------------------- */
-void hu_malloc_init(bool overflow, bool useafterfree, size_t minsize)
+void hu_malloc_init(bool overflow, bool useafterfree, size_t minsize, int quarantine_pct)
 {
   hu_overflow = overflow;
   hu_useafterfree = useafterfree;
   hu_minsize = minsize;
-  
+
   hu_num_pages = sysconf(_SC_PHYS_PAGES);
   hu_page_size = sysconf(_SC_PAGE_SIZE);
-  hu_quarantine_max_size = (((size_t)hu_num_pages * (size_t)hu_page_size) * 10 / 100);  
+  hu_quarantine_max_size = (((size_t)hu_num_pages * (size_t)hu_page_size) * quarantine_pct / 100);
 
   struct sigaction sa;
   sa.sa_flags = SA_SIGINFO;
@@ -287,6 +288,7 @@ void hu_free(void* user_ptr)
     /* Release quarantined allocations back to OS if over max size */
     while ((hu_quarantine_size > hu_quarantine_max_size) && !hu_quarantine_allocs->empty())
     {
+      hu_quarantine_evicted = true;
       hu_alloc_info delete_alloc_info = hu_quarantine_allocs->front();
       hu_quarantine_allocs->pop();
 
@@ -387,4 +389,9 @@ size_t hu_malloc_size(void* user_ptr)
     return 0;
 #endif
   }
+}
+
+bool hu_quarantine_was_evicted()
+{
+  return hu_quarantine_evicted;
 }
