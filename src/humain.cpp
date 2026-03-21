@@ -167,7 +167,10 @@ void __attribute__ ((constructor)) hu_init(void)
   hu_nosyms = hu_get_env_bool("HU_NOSYMS");
 
   /* Init logging */
-  log_init(hu_file, hu_doublefree, hu_nosyms, hu_minsize, hu_useafterfree, hu_leak);
+  const char* hu_command = getenv("HU_COMMAND");
+  bool hu_log_pid_prefix = hu_get_env_bool("HU_LOGPID");
+  log_init(hu_file, hu_doublefree, hu_nosyms, hu_minsize, hu_useafterfree, hu_leak,
+           hu_command, hu_log_pid_prefix);
   
   /* Init mutex for recursion detection */
   hu_bypass = true;

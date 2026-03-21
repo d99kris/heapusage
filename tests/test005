@@ -7,45 +7,47 @@ TMPDIR=$(mktemp -d -t heapusage.XXXXXX)
 # Run application
 ./heapusage -t all -m 0 -o ${TMPDIR}/out.txt ./ex005 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
 
-# ==42668== Heapusage - https://github.com/d99kris/heapusage
-# ==42668== 
-# ==42668== Invalid memory access at:
-# ==42668==    at 0x00007fb970b2100a: 
-# ==42668==    at 0x00007fb97092e210: 
-# ==42668==    at 0x000055badc60b1bd: main + 52
-# ==42668==    at 0x00007fb97090f0b3: __libc_start_main + 243
-# ==42668==    at 0x000055badc60b0ce: _start + 46
-# ==42668==  Address 0x55badc986ff8 is 0 bytes inside a block of size 8 free'd at:
-# ==42668==    at 0x00007fb970b178c8: free + 166
-# ==42668==    at 0x000055badc60b1af: main + 38
-# ==42668==    at 0x00007fb97090f0b3: __libc_start_main + 243
-# ==42668==    at 0x000055badc60b0ce: _start + 46
-# ==42668==  Block was alloc'd at:
-# ==42668==    at 0x00007fb970b177d4: malloc + 167
-# ==42668==    at 0x000055badc60b19f: main + 22
-# ==42668==    at 0x00007fb97090f0b3: __libc_start_main + 243
-# ==42668==    at 0x000055badc60b0ce: _start + 46
-# ==42668== 
-# ==42668== HEAP SUMMARY:
-# ==42668==     in use at exit: 0 bytes in 0 blocks
-# ==42668==   total heap usage: 1 allocs, 1 frees, 8 bytes allocated
-# ==42668==    peak heap usage: 8 bytes allocated
-# ==42668== 
-# ==42668== LEAK SUMMARY:
-# ==42668==    definitely lost: 0 bytes in 0 blocks
-# ==42668== 
+# Heapusage - https://github.com/d99kris/heapusage
+# Command: ./ex005
+# Process: 42668
+#
+# Invalid memory access at:
+#    at 0x00007fb970b2100a:
+#    at 0x00007fb97092e210:
+#    at 0x000055badc60b1bd: main + 52
+#    at 0x00007fb97090f0b3: __libc_start_main + 243
+#    at 0x000055badc60b0ce: _start + 46
+#  Address 0x55badc986ff8 is 0 bytes inside a block of size 8 free'd at:
+#    at 0x00007fb970b178c8: free + 166
+#    at 0x000055badc60b1af: main + 38
+#    at 0x00007fb97090f0b3: __libc_start_main + 243
+#    at 0x000055badc60b0ce: _start + 46
+#  Block was alloc'd at:
+#    at 0x00007fb970b177d4: malloc + 167
+#    at 0x000055badc60b19f: main + 22
+#    at 0x00007fb97090f0b3: __libc_start_main + 243
+#    at 0x000055badc60b0ce: _start + 46
+#
+# HEAP SUMMARY:
+#     in use at exit: 0 bytes in 0 blocks
+#   total heap usage: 1 allocs, 1 frees, 8 bytes allocated
+#    peak heap usage: 8 bytes allocated
+#
+# LEAK SUMMARY:
+#    definitely lost: 0 bytes in 0 blocks
+#
 
 # Check result - header
-LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -1 | tail -1)
-EXPT=" Heapusage - https://github.com/d99kris/heapusage"
+LINE=$(head -1 ${TMPDIR}/out.txt)
+EXPT="Heapusage - https://github.com/d99kris/heapusage"
 if [ "${LINE}" != "${EXPT}" ]; then
   echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
   RV=1
 fi
 
 # Check result - details
-LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -3 | tail -1)
-EXPT=" Invalid memory access at:"
+LINE=$(head -5 ${TMPDIR}/out.txt | tail -1)
+EXPT="Invalid memory access at:"
 if [ "${LINE}" != "${EXPT}" ]; then
   echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
   RV=1
@@ -70,4 +72,3 @@ rm -rf ${TMPDIR}
 
 # Exit
 exit ${RV}
-

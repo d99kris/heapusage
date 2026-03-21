@@ -21,7 +21,7 @@
 
 /* ----------- Global Function Prototypes ------------------------ */
 void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool useafterfree,
-              bool leak);
+              bool leak, const char* command, bool log_pid_prefix);
 void log_enable(int flag);
 void log_event(int event, void* ptr, size_t size);
 void log_invalid_access(void* ptr);

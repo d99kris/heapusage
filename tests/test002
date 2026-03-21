@@ -8,44 +8,46 @@ TMPDIR=$(mktemp -d -t heapusage.XXXXXX)
 ./heapusage -m 0 -t all -o ${TMPDIR}/out.txt ./ex002 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
 
 # Expected out.txt:
-# ==2791== Heapusage - https://github.com/d99kris/heapusage
-# ==2791== 
-# ==2791== Invalid deallocation at:
-# ==2791==    at 0x00007ffa475148c8: free + 166
-# ==2791==    at 0x0000558f9056b1a9: main + 64
-# ==2791==    at 0x00007ffa4730c0b3: __libc_start_main + 243
-# ==2791==    at 0x0000558f9056b0ae: _start + 46
-# ==2791==  Address 0x558f91bc8a48 is a block of size 5555 free'd at:
-# ==2791==    at 0x00007ffa475148c8: free + 166
-# ==2791==    at 0x0000558f9056b19d: main + 52
-# ==2791==    at 0x00007ffa4730c0b3: __libc_start_main + 243
-# ==2791==    at 0x0000558f9056b0ae: _start + 46
-# ==2791==  Block was alloc'd at:
-# ==2791==    at 0x00007ffa475147d4: malloc + 167
-# ==2791==    at 0x0000558f9056b17f: main + 22
-# ==2791==    at 0x00007ffa4730c0b3: __libc_start_main + 243
-# ==2791==    at 0x0000558f9056b0ae: _start + 46
-# ==2791== 
-# ==2791== HEAP SUMMARY:
-# ==2791==     in use at exit: 0 bytes in 0 blocks
-# ==2791==   total heap usage: 1 allocs, 2 frees, 5555 bytes allocated
-# ==2791==    peak heap usage: 5555 bytes allocated
-# ==2791== 
-# ==2791== LEAK SUMMARY:
-# ==2791==    definitely lost: 0 bytes in 0 blocks
-# ==2791== 
+# Heapusage - https://github.com/d99kris/heapusage
+# Command: ./ex002
+# Process: 2791
+#
+# Invalid deallocation at:
+#    at 0x00007ffa475148c8: free + 166
+#    at 0x0000558f9056b1a9: main + 64
+#    at 0x00007ffa4730c0b3: __libc_start_main + 243
+#    at 0x0000558f9056b0ae: _start + 46
+#  Address 0x558f91bc8a48 is a block of size 5555 free'd at:
+#    at 0x00007ffa475148c8: free + 166
+#    at 0x0000558f9056b19d: main + 52
+#    at 0x00007ffa4730c0b3: __libc_start_main + 243
+#    at 0x0000558f9056b0ae: _start + 46
+#  Block was alloc'd at:
+#    at 0x00007ffa475147d4: malloc + 167
+#    at 0x0000558f9056b17f: main + 22
+#    at 0x00007ffa4730c0b3: __libc_start_main + 243
+#    at 0x0000558f9056b0ae: _start + 46
+#
+# HEAP SUMMARY:
+#     in use at exit: 0 bytes in 0 blocks
+#   total heap usage: 1 allocs, 2 frees, 5555 bytes allocated
+#    peak heap usage: 5555 bytes allocated
+#
+# LEAK SUMMARY:
+#    definitely lost: 0 bytes in 0 blocks
+#
 
 # Check result - header
-LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -1 | tail -1)
-EXPT=" Heapusage - https://github.com/d99kris/heapusage"
+LINE=$(head -1 ${TMPDIR}/out.txt)
+EXPT="Heapusage - https://github.com/d99kris/heapusage"
 if [ "${LINE}" != "${EXPT}" ]; then
   echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
   RV=1
 fi
 
 # Check result - details
-LINE=$(cat ${TMPDIR}/out.txt | cut -d'=' -f5 | head -3 | tail -1)
-EXPT=" Invalid deallocation at:"
+LINE=$(head -5 ${TMPDIR}/out.txt | tail -1)
+EXPT="Invalid deallocation at:"
 if [ "${LINE}" != "${EXPT}" ]; then
   echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
   RV=1
@@ -63,4 +65,3 @@ rm -rf ${TMPDIR}
 
 # Exit
 exit ${RV}
-

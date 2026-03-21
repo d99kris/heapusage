@@ -69,6 +69,7 @@ static int hu_log_nosyms = 0;
 static size_t hu_log_minleak = 0;
 static bool hu_useafterfree = false;
 static bool hu_leak = false;
+static char hu_prefix[32] = "";
 
 static long hu_page_size = 0;
 static int logging_enabled = 0;
@@ -99,7 +100,7 @@ static std::string addr_to_symbol(void *addr);
 
 /* ----------- Global Functions ---------------------------------- */
 void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool useafterfree,
-              bool leak)
+              bool leak, const char* command, bool log_pid_prefix)
 {
   /* Config */
   hu_log_file = file;
@@ -109,9 +110,15 @@ void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool use
   hu_useafterfree = useafterfree;
   hu_leak = leak;
 
-  /* Get runtime info */  
+  /* Get runtime info */
   pid = getpid();
   hu_page_size = sysconf(_SC_PAGE_SIZE);
+
+  /* Set up log line prefix */
+  if (log_pid_prefix)
+  {
+    snprintf(hu_prefix, sizeof(hu_prefix), "==%d== ", pid);
+  }
 
   /* Initial log output */
   if (hu_log_file)
@@ -119,8 +126,10 @@ void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool use
     FILE *f = fopen(hu_log_file, "w");
     if (f)
     {
-      fprintf(f, "==%d== Heapusage - https://github.com/d99kris/heapusage\n", pid);
-      fprintf(f, "==%d== \n", pid);
+      fprintf(f, "%sHeapusage - https://github.com/d99kris/heapusage\n", hu_prefix);
+      fprintf(f, "%sCommand: %s\n", hu_prefix, command ? command : "");
+      fprintf(f, "%sProcess: %d\n", hu_prefix, pid);
+      fprintf(f, "%s\n", hu_prefix);
       fclose(f);
     }
     else
@@ -152,9 +161,9 @@ void log_print_callstack(FILE *f, int callstack_depth, void * const callstack[])
     while (i < callstack_depth)
     {
 #if UINTPTR_MAX == 0xffffffff
-      fprintf(f, "==%d==    at 0x%08x", pid, (unsigned int) callstack[i]);
+      fprintf(f, "%s   at 0x%08x", hu_prefix, (unsigned int) callstack[i]);
 #else
-      fprintf(f, "==%d==    at 0x%016" PRIxPTR, pid, (unsigned long) callstack[i]);
+      fprintf(f, "%s   at 0x%016" PRIxPTR, hu_prefix, (unsigned long) callstack[i]);
 #endif
 
       if (hu_log_nosyms)
@@ -172,7 +181,7 @@ void log_print_callstack(FILE *f, int callstack_depth, void * const callstack[])
   }
   else
   {
-    fprintf(f, "==%d==    error: backtrace() returned empty callstack\n", pid);
+    fprintf(f, "%s   error: backtrace() returned empty callstack\n", hu_prefix);
   }
 }
 
@@ -280,22 +289,22 @@ void log_event(int event, void *ptr, size_t size)
               FILE *f = fopen(hu_log_file, "a");
               if (f)
               {
-                fprintf(f, "==%d== Invalid deallocation at:\n", pid);
+                fprintf(f, "%sInvalid deallocation at:\n", hu_prefix);
 
                 log_print_callstack(f, callstack_depth, callstack);
 
-                fprintf(f, "==%d==  Address %p is a block of size %ld free'd at:\n",
-                        pid, ptr, allocation->second.size);
-          
+                fprintf(f, "%s Address %p is a block of size %ld free'd at:\n",
+                        hu_prefix, ptr, allocation->second.size);
+
                 log_print_callstack(f, allocation->second.free_callstack_depth,
                                     allocation->second.free_callstack);
 
-                fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
-          
+                fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
+
                 log_print_callstack(f, allocation->second.callstack_depth,
                                     allocation->second.callstack);
 
-                fprintf(f, "==%d== \n", pid);
+                fprintf(f, "%s\n", hu_prefix);
 
                 fclose(f);
               }
@@ -325,7 +334,7 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
     FILE *f = fopen(hu_log_file, "a");
     if (f)
     {
-      fprintf(f, "==%d== Invalid memory access at:\n", pid);
+      fprintf(f, "%sInvalid memory access at:\n", hu_prefix);
 
       log_print_callstack(f, callstack_depth, callstack);
 
@@ -340,8 +349,8 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
           found = true;
           size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
 
-          fprintf(f, "==%d==  Address %p is %ld bytes after a block of size %ld alloc'd at:\n",
-                  pid, ptr, offset, allocation->second.size);
+          fprintf(f, "%s Address %p is %ld bytes after a block of size %ld alloc'd at:\n",
+                  hu_prefix, ptr, offset, allocation->second.size);
 
           log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
           break;
@@ -359,13 +368,13 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
             found = true;
             size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
 
-            fprintf(f, "==%d==  Address %p is %ld bytes after a block of size %ld free'd at:\n",
-                    pid, ptr, offset, allocation->second.size);
+            fprintf(f, "%s Address %p is %ld bytes after a block of size %ld free'd at:\n",
+                    hu_prefix, ptr, offset, allocation->second.size);
 
             log_print_callstack(f, allocation->second.free_callstack_depth,
                                 allocation->second.free_callstack);
 
-            fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
+            fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
             log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
             break;
           }
@@ -375,27 +384,27 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
             found = true;
             size_t offset = (char*)ptr - ((char*)allocation->second.ptr);
 
-            fprintf(f, "==%d==  Address %p is %ld bytes inside a block of size %ld free'd at:\n",
-                    pid, ptr, offset, allocation->second.size);
+            fprintf(f, "%s Address %p is %ld bytes inside a block of size %ld free'd at:\n",
+                    hu_prefix, ptr, offset, allocation->second.size);
 
             log_print_callstack(f, allocation->second.free_callstack_depth,
                                 allocation->second.free_callstack);
 
-            fprintf(f, "==%d==  Block was alloc'd at:\n", pid);
+            fprintf(f, "%s Block was alloc'd at:\n", hu_prefix);
             log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
             break;
           }
         }
       }
       
-      fprintf(f, "==%d== \n", pid);
+      fprintf(f, "%s\n", hu_prefix);
 
       fclose(f);
     }
   }
 
   hu_set_bypass(false);
-  
+
   exit(EXIT_FAILURE);
 }
 
@@ -447,18 +456,18 @@ void log_summary(bool ondemand)
   /* Indicate in case an on-demand report */
   if (ondemand)
   {
-    fprintf(f, "==%d== ON DEMAND REPORT\n", pid);
+    fprintf(f, "%sON DEMAND REPORT\n", hu_prefix);
   }
 
   /* Output heap summary */
-  fprintf(f, "==%d== HEAP SUMMARY:\n", pid);
-  fprintf(f, "==%d==     in use at exit: %llu bytes in %llu blocks\n",
-          pid, leak_total_bytes, leak_total_blocks);
-  fprintf(f, "==%d==   total heap usage: %llu allocs, %llu frees, %llu bytes allocated\n",
-          pid, allocinfo_total_allocs, allocinfo_total_frees, allocinfo_total_alloc_bytes);
-  fprintf(f, "==%d==    peak heap usage: %llu bytes allocated\n",
-          pid, allocinfo_peak_alloc_bytes);
-  fprintf(f, "==%d== \n", pid);
+  fprintf(f, "%sHEAP SUMMARY:\n", hu_prefix);
+  fprintf(f, "%s    in use at exit: %llu bytes in %llu blocks\n",
+          hu_prefix, leak_total_bytes, leak_total_blocks);
+  fprintf(f, "%s  total heap usage: %llu allocs, %llu frees, %llu bytes allocated\n",
+          hu_prefix, allocinfo_total_allocs, allocinfo_total_frees, allocinfo_total_alloc_bytes);
+  fprintf(f, "%s   peak heap usage: %llu bytes allocated\n",
+          hu_prefix, allocinfo_peak_alloc_bytes);
+  fprintf(f, "%s\n", hu_prefix);
 
   /* Output leak details */
   if (hu_leak)
@@ -467,20 +476,20 @@ void log_summary(bool ondemand)
     {
       if (log_is_valid_callstack(it->callstack_depth, it->callstack, true))
       {
-        fprintf(f, "==%d== %zu bytes in %d block(s) are lost, originally allocated at:\n", pid, it->size, it->count);
+        fprintf(f, "%s%zu bytes in %d block(s) are lost, originally allocated at:\n", hu_prefix, it->size, it->count);
 
         log_print_callstack(f, it->callstack_depth, it->callstack);
-    
-        fprintf(f, "==%d== \n", pid);
+
+        fprintf(f, "%s\n", hu_prefix);
       }
     }
   }
   
   /* Output leak summary */
-  fprintf(f, "==%d== LEAK SUMMARY:\n", pid);
-  fprintf(f, "==%d==    definitely lost: %llu bytes in %llu blocks\n", pid,
+  fprintf(f, "%sLEAK SUMMARY:\n", hu_prefix);
+  fprintf(f, "%s   definitely lost: %llu bytes in %llu blocks\n", hu_prefix,
          leak_total_bytes, leak_total_blocks);
-  fprintf(f, "==%d== \n", pid);
+  fprintf(f, "%s\n", hu_prefix);
 
   fclose(f);
 }
