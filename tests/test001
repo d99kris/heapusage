@@ -34,8 +34,8 @@ TMPDIR=$(mktemp -d -t heapusage.XXXXXX)
 
 # Check result - header
 LINE=$(head -1 ${TMPDIR}/err.txt)
-EXPT="Heapusage - https://github.com/d99kris/heapusage"
-if [ "${LINE}" != "${EXPT}" ]; then
+EXPT="Heapusage*- https://github.com/d99kris/heapusage"
+if [[ "${LINE}" != ${EXPT} ]]; then
   echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
   RV=1
 fi

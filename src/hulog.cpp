@@ -133,7 +133,15 @@ void log_init(char* file, bool doublefree, bool nosyms, size_t minsize, bool use
     FILE *f = fopen(hu_log_file, "w");
     if (f)
     {
-      fprintf(f, "%sHeapusage - https://github.com/d99kris/heapusage\n", hu_prefix);
+      const char* hu_version = getenv("HU_VERSION");
+      if (hu_version && hu_version[0])
+      {
+        fprintf(f, "%sHeapusage v%s - https://github.com/d99kris/heapusage\n", hu_prefix, hu_version);
+      }
+      else
+      {
+        fprintf(f, "%sHeapusage - https://github.com/d99kris/heapusage\n", hu_prefix);
+      }
       fprintf(f, "%sCommand: %s\n", hu_prefix, command ? command : "");
       fprintf(f, "%sProcess: %d\n", hu_prefix, pid);
       fprintf(f, "%s\n", hu_prefix);
@@ -480,10 +488,10 @@ void log_summary(bool ondemand)
     fprintf(f, "%sON DEMAND REPORT\n", hu_prefix);
   }
 
-  /* Output warning summary */
+  /* Output error summary */
   if (total_invalid_dealloc_count > 0 || total_invalid_access_count > 0)
   {
-    fprintf(f, "%sWARNING SUMMARY:\n", hu_prefix);
+    fprintf(f, "%sERROR SUMMARY:\n", hu_prefix);
     fprintf(f, "%s     deallocations: %llu unique (%llu total)\n", hu_prefix,
             (unsigned long long)reported_invalid_dealloc_callstacks->size(),
             total_invalid_dealloc_count);
