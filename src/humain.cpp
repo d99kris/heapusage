@@ -42,8 +42,8 @@ static int hu_log_signo = 0;
 
 /* State */
 static bool hu_enable_humalloc = false;
-static bool hu_bypass = false;
-static bool hu_bypass_saved = false;
+static thread_local bool hu_bypass = false;
+static thread_local bool hu_bypass_saved = false;
 
 /* Recursion detection (thread-local, no lock needed) */
 static thread_local int hu_callcount = 0;
@@ -106,13 +106,11 @@ static inline bool hu_get_env_bool(const char* name)
 static void hu_atfork_prepare()
 {
   /*
-   * When fork() is called, the child inherits mutex state from the parent.
-   * If the parent held hu_mutex during fork, the child will deadlock
-   * when atfork handlers (e.g. _objc_atfork_child) call free(). Using
-   * pthread_atfork, we set hu_bypass = true before the fork so allocation
-   * wrappers pass through without touching the mutex. In the parent we
-   * restore the original value; in the child we keep bypass enabled since
-   * child processes are not tracked (preload env vars are already unset).
+   * Set bypass on the forking thread only (hu_bypass is thread-local) so
+   * its allocation wrappers pass through without touching the mutex during
+   * fork. Other threads are unaffected and continue handling hu_malloc'd
+   * pointers correctly — a global bypass would cause them to pass offset
+   * pointers to the system allocator, crashing in realloc/free.
    */
   hu_bypass_saved = hu_bypass;
   hu_bypass = true;
@@ -211,15 +209,19 @@ void __attribute__ ((destructor)) hu_fini(void)
   /* Disable logging */
   log_enable(0);
 
-  /* Cleanup malloc */
-  if (hu_enable_humalloc)
-  {
-    hu_enable_humalloc = false;
-    hu_malloc_cleanup();
-  }
-
-  /* Present result */
+  /*
+   * Bypass this thread's wrappers so log_summary's internal allocations
+   * use the system allocator without touching the mutex. Hold the lock
+   * during summary to prevent concurrent modification of tracking data
+   * by other threads that are still running during exit().
+   *
+   * Leave hu_enable_humalloc true — other threads may still free
+   * hu_malloc'd pointers. The OS reclaims all memory at termination.
+   */
+  hu_bypass = true;
+  if (hu_mutex) hu_mutex->lock();
   log_summary(false /* ondemand */);
+  if (hu_mutex) hu_mutex->unlock();
 }
 
 void hu_set_bypass(bool bypass)
