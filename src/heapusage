@@ -15,6 +15,7 @@ showusage()
   echo "   or: heapusage --version"
   echo ""
   echo "Options:"
+  echo "   -c <appbundle>  code re-sign specified app bundle (macOS only)"
   echo "   -d              debug mode, running program through debugger"
   echo "   -i              prefix each log line with PID (valgrind style)"
   echo "   -m <minsize>    min alloc size to enable analysis for (default 0)"
@@ -54,7 +55,7 @@ showusage()
 
 showversion()
 {
-  echo "heapusage v2.27"
+  echo "heapusage v2.28"
   echo ""
   echo "Copyright (C) 2017-2026 Kristofer Berggren"
   echo ""
@@ -76,6 +77,7 @@ elif [[ "${#}" == "0" ]] ; then
 fi
 
 # Arguments - regular options
+CODESIGNAPP=""
 DEBUG="0"
 LOGPID="0"
 MINSIZE="0"
@@ -85,11 +87,14 @@ QUARANTINE=""
 REPEAT="0"
 SIGNO=""
 TOOLS="error"
-while getopts "?difm:no:q:rs:t:" OPT; do
+while getopts "?c:difm:no:q:rs:t:" OPT; do
   case "${OPT}" in
   \?)
     showusage
     exit 1
+    ;;
+  c)
+    CODESIGNAPP="${OPTARG}"
     ;;
   d)
     DEBUG="1"
@@ -131,6 +136,46 @@ while getopts "?difm:no:q:rs:t:" OPT; do
 done
 shift $((OPTIND-1))
 [[ "$1" = "--" ]] && shift
+
+# Arguments - codesign special mode
+if [[ "${CODESIGNAPP}" != "" ]]; then
+  if [[ "$(uname)" == "Darwin" ]]; then
+    if [[ "${CODESIGNAPP}" != *".app" ]]; then
+      echo "error: expected app bundle (.app) argument" >&2
+      exit 1
+    fi
+
+    echo "WARNING: Code re-signing with modified entitlements may invalidate"
+    echo "original signature, break notarization expectations, interfere with"
+    echo "update or cause the application to stop working."
+    echo ""
+    echo "This action requires sudo and may prompt you for you user password."
+    echo ""
+    read -p "Do you wish to proceed? (y/n)? "
+    echo ""
+    if [[ "${REPLY}" != "y" ]]; then
+      echo "Aborting."
+      exit 1
+    fi
+
+    TMP=$(mktemp -d -t heapusage.XXXXXX)
+    codesign --display --xml --entitlements "${TMP}/tmp.entitlements" "${CODESIGNAPP}" && \
+    sed -i '' "s/<\/dict><\/plist>/<key>com.apple.security.get-task-allow<\/key><true\/><\/dict><\/plist>/g" "${TMP}/tmp.entitlements" && \
+    sudo codesign -s - --deep --force --options=runtime --entitlements "${TMP}/tmp.entitlements" "${CODESIGNAPP}"
+    RV="${?}"
+    rm -rf "${TMP}"
+    echo ""
+    if [[ "${RV}" == "0" ]]; then
+      echo "success: updating entitlements for ${CODESIGNAPP}"
+    else
+      echo "error: updating entitlements for ${CODESIGNAPP}"
+    fi
+    exit ${RV}
+  else
+    echo "error: codesign is only supported on macOS" >&2
+    exit 1
+  fi
+fi
 
 # Arguments - ensure program specified
 if [[ "${#}" == "0" ]]; then
@@ -328,7 +373,7 @@ done
 
 # Report error if library not found
 if [[ "${FOUND}" != "1" ]]; then
-  echo "error: unable to determine path of ${LIBNAME}"
+  echo "error: unable to determine path of ${LIBNAME}" >&2
   exit 1
 fi
 
@@ -337,9 +382,10 @@ if [[ "${OUTFILE}" == "" ]]; then
   if [[ -f "${TMPLOG}" ]]; then
     cat "${TMPLOG}" >&2
   else
-    echo "error: unable to preload libheapusage"
+    echo "error: unable to preload libheapusage" >&2
   fi
-
+elif [[ ! -f "${OUTFILE}" ]]; then
+  echo "error: unable to preload libheapusage" >&2
 fi
 
 # Cleanup temp dir

@@ -56,7 +56,9 @@ functionality should work in macOS as well. Current version has been tested on:
 Limitation: On macOS this tool relies on code injection using
 DYLD_INSERT_LIBRARIES, which generally does not work with third-party
 applications in a standard system. Using it on (your own) applications built
-from source should work fine though.
+from source should work fine though. See this
+[FAQ](https://github.com/d99kris/heapusage#1-what-can-cause-error-unable-to-preload-libheapusage)
+for more details.
 
 Installation
 ============
@@ -192,6 +194,20 @@ the program exits, and therefore not necessarily constitute a memory leak.
 Heapusage uses a default call stack limit of 20 frames per call stack. It is
 possible to change this value at build time by using the `HU_MAX_CALL_STACK`
 CMake variable.
+
+FAQ
+===
+### 1. What can cause `error: unable to preload libheapusage` on macOS?
+
+On macOS this tool relies on code injection using DYLD_INSERT_LIBRARIES, which
+generally does not work with third-party applications in a standard system,
+unless the application is built with `com.apple.security.get-task-allow`
+entitlements (allowing debugging). Sometimes it's possible to analyze an
+application by modifying the app bundle and adding this entitlement by
+running the following command (note: this will modify the app bundle and may
+break it):
+
+    heapusage -c /Applications/SomeApplication.app
 
 Technical Details
 =================
