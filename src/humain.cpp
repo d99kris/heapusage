@@ -43,6 +43,7 @@ static int hu_log_signo = 0;
 /* State */
 static bool hu_enable_humalloc = false;
 static bool hu_bypass = false;
+static bool hu_bypass_saved = false;
 
 /* Recursion detection */
 static int hu_callcount = 0;
@@ -109,6 +110,31 @@ static inline bool hu_get_env_bool(const char* name)
   return (strcmp(value, "1") == 0);
 }
 
+static void hu_atfork_prepare()
+{
+  /*
+   * When fork() is called, the child inherits mutex state from the parent.
+   * If the parent held hu_recursive_mutex during fork, the child will deadlock
+   * when atfork handlers (e.g. _objc_atfork_child) call free(). Using
+   * pthread_atfork, we set hu_bypass = true before the fork so allocation
+   * wrappers pass through without touching the mutex. In the parent we
+   * restore the original value; in the child we keep bypass enabled since
+   * child processes are not tracked (preload env vars are already unset).
+   */
+  hu_bypass_saved = hu_bypass;
+  hu_bypass = true;
+}
+
+static void hu_atfork_parent()
+{
+  hu_bypass = hu_bypass_saved;
+}
+
+static void hu_atfork_child()
+{
+  /* Keep hu_bypass = true - child should not track allocations */
+}
+
 void signal_handler(int)
 {
   hu_report();
@@ -147,6 +173,9 @@ void __attribute__ ((constructor)) hu_init(void)
   hu_bypass = true;
   hu_recursive_mutex = new std::recursive_mutex();
   hu_bypass = false;
+
+  /* Register fork safety handlers */
+  pthread_atfork(hu_atfork_prepare, hu_atfork_parent, hu_atfork_child);
 
   /* Init custom malloc */
   hu_enable_humalloc = (hu_overflow || hu_useafterfree);
