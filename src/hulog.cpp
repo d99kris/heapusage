@@ -190,7 +190,7 @@ void log_print_callstack(FILE *f, int callstack_depth, void * const callstack[])
       else
       {
         std::string symbol = addr_to_symbol(callstack[i]);
-        fprintf(f, ": %s\n", symbol.c_str());
+        fprintf(f, ": %s\n", symbol.empty() ? "???" : symbol.c_str());
       }
 
       ++i;
