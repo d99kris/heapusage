@@ -222,6 +222,14 @@ void __attribute__ ((destructor)) hu_fini(void)
   if (hu_mutex != nullptr) hu_mutex->lock();
   log_summary(false /* ondemand */);
   if (hu_mutex != nullptr) hu_mutex->unlock();
+
+  /*
+   * Restore bypass so that subsequent free() calls from other libraries'
+   * global destructors (which run after hu_fini) still route hu_malloc'd
+   * pointers through hu_free instead of passing them directly to
+   * __libc_free, which would crash on the offset user_ptr.
+   */
+  hu_bypass = false;
 }
 
 void hu_set_bypass(bool bypass)
