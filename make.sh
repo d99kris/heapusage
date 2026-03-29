@@ -17,6 +17,7 @@ exiterr()
 # process arguments
 DEPS="0"
 BUILD="0"
+DEBUG="0"
 TESTS="0"
 DOC="0"
 INSTALL="0"
@@ -30,6 +31,10 @@ case "${1%/}" in
 
   build)
     BUILD="1"
+    ;;
+
+  debug)
+    DEBUG="1"
     ;;
 
   test*)
@@ -76,6 +81,7 @@ case "${1%/}" in
     echo "Action:"
     echo "  deps      - install project dependencies"
     echo "  build     - perform build"
+    echo "  debug     - perform debug build"
     echo "  tests     - perform build and run tests"
     echo "  doc       - perform build and generate documentation"
     echo "  install   - perform build and install"
@@ -106,8 +112,8 @@ if [[ "${DEPS}" == "1" ]]; then
   fi
 fi
 
-# build
-if [[ "${BUILD}" == "1" ]]; then
+# set make args
+if [[ "${BUILD}" == "1" ]] || [[ "${DEBUG}" == "1" ]]; then
   OS="$(uname)"
   MAKEARGS=""
   if [ "${OS}" == "Linux" ]; then
@@ -115,7 +121,17 @@ if [[ "${BUILD}" == "1" ]]; then
   elif [ "${OS}" == "Darwin" ]; then
     MAKEARGS="-j$(sysctl -n hw.ncpu)"
   fi
+fi
+
+# build
+if [[ "${BUILD}" == "1" ]]; then
   mkdir -p build && cd build && cmake .. && make ${MAKEARGS} && cd .. || exiterr "build failed, exiting."
+fi
+
+# debug
+if [[ "${DEBUG}" == "1" ]]; then
+  CMAKEARGS="-DCMAKE_BUILD_TYPE=Debug"
+  mkdir -p dbgbuild && cd dbgbuild && cmake ${CMAKEARGS} .. && make ${MAKEARGS} && cd .. || exiterr "debug build failed, exiting."
 fi
 
 # tests
