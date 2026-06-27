@@ -11,6 +11,7 @@
 /* ----------- Includes ------------------------------------------ */
 #include <atomic>
 #include <cassert>
+#include <cinttypes>
 #include <cstring>
 #include <iostream>
 #include <fstream>
@@ -103,7 +104,7 @@ static int hu_mprotect(void* addr, size_t len, int prot)
   int rv = mprotect(addr, len, prot);
   if (rv != 0)
   {
-    fprintf(stderr, "heapusage error: mprotect(%p, %ld, %d) failed errno %d\n",
+    fprintf(stderr, "heapusage error: mprotect(%p, %zu, %d) failed errno %d\n",
             addr, len, prot, errno);
 
 #if defined(__linux__)
@@ -117,9 +118,9 @@ static int hu_mprotect(void* addr, size_t len, int prot)
     if (callcount > (max_map_count / 2))
     {
       fprintf(stderr,
-              "max_map_count=%ld mprotect_count=%ld, try increasing max_map_count, ex:\n",
+              "max_map_count=%" PRIu64 " mprotect_count=%" PRIu64 ", try increasing max_map_count, ex:\n",
               max_map_count, callcount);
-      fprintf(stderr, "sudo sh -c \"echo %ld > /proc/sys/vm/max_map_count\"\n",
+      fprintf(stderr, "sudo sh -c \"echo %" PRIu64 " > /proc/sys/vm/max_map_count\"\n",
               (2 * max_map_count));
       exit(1);
     }
