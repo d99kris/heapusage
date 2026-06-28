@@ -2,7 +2,7 @@
 
 # make.sh
 #
-# Copyright (C) 2020-2024 Kristofer Berggren
+# Copyright (C) 2020-2026 Kristofer Berggren
 # All rights reserved.
 #
 # See LICENSE for redistribution information.
@@ -23,6 +23,13 @@ DOC="0"
 INSTALL="0"
 SRC="0"
 YES=""
+
+case "${1%/}" in
+  -y|--yes)
+    YES="-y"
+    shift
+    ;;
+esac
 
 case "${1%/}" in
   deps)
@@ -64,19 +71,12 @@ case "${1%/}" in
     INSTALL="1"
     ;;
 
-  -y)
-    YES="-y"
-    ;;
-
-  --yes)
-    YES="-y"
-    ;;
 
   *)
     echo "usage: make.sh [OPTIONS] ACTION"
     echo ""
     echo "Options:"
-    echo "  --yes,-y        - non-interactive mode, assume yes"
+    echo "  --yes,-y  - non-interactive mode, assume yes"
     echo ""
     echo "Action:"
     echo "  deps      - install project dependencies"
