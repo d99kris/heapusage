@@ -316,7 +316,7 @@ void log_event(int event, void* ptr, size_t size)
 
                 log_print_callstack(f, callstack_depth, callstack);
 
-                fprintf(f, "%s Address %p is a block of size %ld free'd at:\n",
+                fprintf(f, "%s Address %p is a block of size %zu free'd at:\n",
                         hu_prefix, ptr, allocation->second.size);
 
                 log_print_callstack(f, allocation->second.free_callstack_depth,
@@ -378,7 +378,7 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
             found = true;
             size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
 
-            fprintf(f, "%s Address %p is %ld bytes after a block of size %ld alloc'd at:\n",
+            fprintf(f, "%s Address %p is %zu bytes after a block of size %zu alloc'd at:\n",
                     hu_prefix, ptr, offset, allocation->second.size);
 
             log_print_callstack(f, allocation->second.callstack_depth, allocation->second.callstack);
@@ -397,7 +397,7 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
               found = true;
               size_t offset = (char*)ptr - ((char*)allocation->second.ptr + allocation->second.size);
 
-              fprintf(f, "%s Address %p is %ld bytes after a block of size %ld free'd at:\n",
+              fprintf(f, "%s Address %p is %zu bytes after a block of size %zu free'd at:\n",
                       hu_prefix, ptr, offset, allocation->second.size);
 
               log_print_callstack(f, allocation->second.free_callstack_depth,
@@ -413,7 +413,7 @@ void hu_sig_handler(int sig, siginfo_t* si, void* /*ucontext*/)
               found = true;
               size_t offset = (char*)ptr - ((char*)allocation->second.ptr);
 
-              fprintf(f, "%s Address %p is %ld bytes inside a block of size %ld free'd at:\n",
+              fprintf(f, "%s Address %p is %zu bytes inside a block of size %zu free'd at:\n",
                       hu_prefix, ptr, offset, allocation->second.size);
 
               log_print_callstack(f, allocation->second.free_callstack_depth,
