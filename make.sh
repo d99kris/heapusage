@@ -25,6 +25,13 @@ SRC="0"
 YES=""
 
 case "${1%/}" in
+  -y|--yes)
+    YES="-y"
+    shift
+    ;;
+esac
+
+case "${1%/}" in
   deps)
     DEPS="1"
     ;;
@@ -64,13 +71,6 @@ case "${1%/}" in
     INSTALL="1"
     ;;
 
-  -y)
-    YES="-y"
-    ;;
-
-  --yes)
-    YES="-y"
-    ;;
 
   *)
     echo "usage: make.sh [OPTIONS] ACTION"
