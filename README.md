@@ -118,7 +118,7 @@ Options:
 
 Supported tools (for option -t):
 
-    all    enables double-free, leak, overflow and use-after-free
+    all    enables double-free, leak, overflow, scribble and use-after-free
 
     error  enables double-free, overflow and use-after-free
 
@@ -129,6 +129,11 @@ Supported tools (for option -t):
 
     overflow
            detect buffer overflows, i.e. access beyond allocated memory
+
+    scribble
+           fill allocated memory with 0xAA and free'd memory with 0x55 to
+           surface uninitialized reads and use-after-free (similar to macOS
+           MallocScribble)
 
     use-after-free
            detect access to free'd memory buffers
@@ -212,6 +217,12 @@ Technical Details
 Heapusage intercepts calls to malloc/free/calloc/realloc and logs each memory
 allocation and free. For overflow and use-after-free it uses protected memory
 pages using `mprotect()` to detect writing outside valid allocations.
+
+For scribble it fills each newly allocated buffer with `0xAA` and each free'd
+buffer with `0x55` (before releasing it), so that uninitialized reads and
+use-after-free accesses yield obvious garbage values (e.g. the `0xAAAAAAAA` /
+`0x55555555` pointer patterns) and are more likely to fault. `calloc()`
+allocations remain zero-initialized as required.
 
 Limitations
 ===========

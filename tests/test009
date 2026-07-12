@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+# Environment
+RV=0
+TMPDIR=$(mktemp -d -t heapusage.XXXXXX)
+
+# Run application - verify the "all" tool set also enables scribble
+./heapusage -t all -m 0 -o ${TMPDIR}/out.txt ./ex009 > ${TMPDIR}/stdout.txt 2> ${TMPDIR}/stderr.txt
+
+# Expected stdout.txt:
+# scribble alloc pattern ok
+
+# Check result - header
+LINE=$(head -1 ${TMPDIR}/out.txt)
+EXPT="Heapusage*- https://github.com/d99kris/heapusage"
+if [[ "${LINE}" != ${EXPT} ]]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Check result - allocation scribble pattern (0xAA) enabled via "all"
+LINE=$(printf "%d\n" $(grep 'scribble alloc pattern ok' ${TMPDIR}/stdout.txt | wc -l))
+EXPT="1"
+if [ "${LINE}" != "${EXPT}" ]; then
+  echo "Output mismatch: \"${LINE}\" != \"${EXPT}\""
+  RV=1
+fi
+
+# Cleanup
+rm -rf ${TMPDIR}
+
+# Exit
+exit ${RV}

@@ -5,7 +5,7 @@
 #
 # heapusage is distributed under the BSD 3-Clause license, see LICENSE for details.
 
-HU_VER="2.38"
+HU_VER="2.39"
 
 showusage()
 {
@@ -33,12 +33,16 @@ showusage()
   echo "   -v,--version    output version information and exit"
   echo ""
   echo "Supported tools (for option -t):"
-  echo "   all             enables double-free, leak, overflow and use-after-free"
+  echo "   all             enables double-free, leak, overflow, scribble and"
+  echo "                   use-after-free"
   echo "   error           enables double-free, overflow and use-after-free"
   echo "   double-free     detect free'ing of buffers already free'd"
   echo "   leak            detect memory allocations never free'd"
   echo "   overflow        detect buffer overflows, i.e. access beyond"
   echo "                   allocated memory"
+  echo "   scribble        fill allocated memory with 0xAA and free'd memory"
+  echo "                   with 0x55 to surface uninitialized reads and"
+  echo "                   use-after-free"
   echo "   use-after-free  detect access to free'd memory buffers"
   echo ""
   echo "Examples:"
@@ -243,6 +247,7 @@ LIBPATHS=(
 DOUBLEFREE="0"
 LEAK="0"
 OVERFLOW="0"
+SCRIBBLE="0"
 USEAFTERFREE="0"
 for TOOL in ${TOOLS//,/ }
 do
@@ -251,6 +256,7 @@ do
     DOUBLEFREE="1"
     LEAK="1"
     OVERFLOW="1"
+    SCRIBBLE="1"
     USEAFTERFREE="1"
     ;;
   double-free)
@@ -267,6 +273,9 @@ do
   overflow)
     OVERFLOW="1"
     ;;
+  scribble)
+    SCRIBBLE="1"
+    ;;
   use-after-free)
     USEAFTERFREE="1"
     ;;
@@ -277,7 +286,7 @@ do
 done
 
 # Bail out if no tool was selected
-if [[ "${DOUBLEFREE}${LEAK}${OVERFLOW}${USEAFTERFREE}" == "0000" ]]; then
+if [[ "${DOUBLEFREE}${LEAK}${OVERFLOW}${SCRIBBLE}${USEAFTERFREE}" == "00000" ]]; then
   echo "error: no tool enabled, aborting."
   exit 1
 fi
@@ -309,6 +318,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
       HU_DOUBLEFREE="${DOUBLEFREE}"         \
       HU_LEAK="${LEAK}"                     \
       HU_OVERFLOW="${OVERFLOW}"             \
+      HU_SCRIBBLE="${SCRIBBLE}"             \
       HU_USEAFTERFREE="${USEAFTERFREE}"     \
       HU_FILE="${TMPLOG}${OUTFILE}"         \
       HU_MINSIZE="${MINSIZE}"               \
@@ -329,6 +339,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "set env HU_DOUBLEFREE=${DOUBLEFREE}"        >> "${GDBCMD}"
         echo "set env HU_LEAK=${LEAK}"                    >> "${GDBCMD}"
         echo "set env HU_OVERFLOW=${OVERFLOW}"            >> "${GDBCMD}"
+        echo "set env HU_SCRIBBLE=${SCRIBBLE}"            >> "${GDBCMD}"
         echo "set env HU_USEAFTERFREE=${USEAFTERFREE}"    >> "${GDBCMD}"
         echo "set env HU_FILE=${TMPLOG}${OUTFILE}"        >> "${GDBCMD}"
         echo "set env HU_MINSIZE=${MINSIZE}"              >> "${GDBCMD}"
@@ -352,6 +363,7 @@ while [[ "${LIBPATHS[CNT]}" != "" ]]; do
         echo "env HU_DOUBLEFREE=\"${DOUBLEFREE}\""        >> "${LLDBCMD}"
         echo "env HU_LEAK=\"${LEAK}\""                    >> "${LLDBCMD}"
         echo "env HU_OVERFLOW=\"${OVERFLOW}\""            >> "${LLDBCMD}"
+        echo "env HU_SCRIBBLE=\"${SCRIBBLE}\""            >> "${LLDBCMD}"
         echo "env HU_USEAFTERFREE=\"${USEAFTERFREE}\""    >> "${LLDBCMD}"
         echo "env HU_FILE=\"${TMPLOG}${OUTFILE}\""        >> "${LLDBCMD}"
         echo "env HU_MINSIZE=\"${MINSIZE}\""              >> "${LLDBCMD}"

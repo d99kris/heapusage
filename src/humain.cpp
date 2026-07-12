@@ -34,6 +34,7 @@ static bool hu_doublefree = false;
 static bool hu_leak = false;
 static bool hu_overflow = false;
 static bool hu_useafterfree = false;
+static bool hu_scribble = false;
 
 static char hu_file[PATH_MAX];
 static size_t hu_minsize = 0;
@@ -141,6 +142,7 @@ void __attribute__ ((constructor)) hu_init(void)
   hu_leak = hu_get_env_bool("HU_LEAK");
   hu_overflow = hu_get_env_bool("HU_OVERFLOW");
   hu_useafterfree = hu_get_env_bool("HU_USEAFTERFREE");
+  hu_scribble = hu_get_env_bool("HU_SCRIBBLE");
 
   if (realpath(getenv("HU_FILE"), hu_file) == nullptr)
   {
@@ -173,13 +175,13 @@ void __attribute__ ((constructor)) hu_init(void)
   pthread_atfork(hu_atfork_prepare, hu_atfork_parent, hu_atfork_child);
 
   /* Init custom malloc */
-  hu_enable_humalloc = (hu_overflow || hu_useafterfree);
+  hu_enable_humalloc = (hu_overflow || hu_useafterfree || hu_scribble);
   if (hu_enable_humalloc)
   {
     const char* quarantine_env = getenv("HU_QUARANTINE");
     int hu_quarantine_pct = ((quarantine_env != nullptr) && quarantine_env[0]) ?
       (int)strtoll(quarantine_env, nullptr, 10) : 10;
-    hu_malloc_init(hu_overflow, hu_useafterfree, hu_minsize, hu_quarantine_pct);
+    hu_malloc_init(hu_overflow, hu_useafterfree, hu_scribble, hu_minsize, hu_quarantine_pct);
   }
 
   /* Register signal handler */

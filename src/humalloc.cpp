@@ -38,8 +38,18 @@
 static bool hu_malloc_inited = false;
 static bool hu_overflow = false;
 static bool hu_useafterfree = false;
+static bool hu_scribble = false;
 static size_t hu_minsize = 0;
 static size_t hu_size_multiple = 2 * sizeof(void*); // double word alignment
+
+/*
+ * Scribble byte patterns, matching macOS MallocScribble semantics:
+ * newly allocated memory is filled with 0xAA (so uninitialized reads yield
+ * obvious garbage / bad pointers), and free'd memory is filled with 0x55
+ * (so use-after-free reads yield the 0x55555555 pattern).
+ */
+static const int hu_scribble_alloc_byte = 0xAA;
+static const int hu_scribble_free_byte = 0x55;
 
 /* Runtime */
 static long hu_page_size = 0;
@@ -132,10 +142,11 @@ static int hu_mprotect(void* addr, size_t len, int prot)
 
 
 /* ----------- Global Functions ---------------------------------- */
-void hu_malloc_init(bool overflow, bool useafterfree, size_t minsize, int quarantine_pct)
+void hu_malloc_init(bool overflow, bool useafterfree, bool scribble, size_t minsize, int quarantine_pct)
 {
   hu_overflow = overflow;
   hu_useafterfree = useafterfree;
+  hu_scribble = scribble;
   hu_minsize = minsize;
 
   hu_num_pages = sysconf(_SC_PHYS_PAGES);
@@ -249,6 +260,13 @@ void* hu_malloc(size_t user_size)
 
   hu_user_addrs->insert(user_ptr);
 
+  /* Scribble newly allocated memory with 0xAA, if enabled. Fills the entire
+     usable block, which ends exactly at the post fence page (never touched). */
+  if (hu_scribble)
+  {
+    memset(user_ptr, hu_scribble_alloc_byte, rounded_user_size);
+  }
+
   return user_ptr;
 }
 
@@ -277,6 +295,14 @@ void hu_free(void* user_ptr)
   }
 
   hu_active_allocs->erase(user_ptr);
+
+  /* Scribble free'd memory with 0x55, if enabled. Done before any quarantine
+     protection below, while the block is still writable. */
+  if (hu_scribble)
+  {
+    const size_t rounded_user_size = hu_calc_user_size(allocInfo.user_size);
+    memset(allocInfo.user_ptr, hu_scribble_free_byte, rounded_user_size);
+  }
 
   if (hu_useafterfree)
   {

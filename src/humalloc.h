@@ -9,7 +9,7 @@
  */
 
 /* ----------- Global Function Prototypes ------------------------ */
-void hu_malloc_init(bool overflow, bool useafterfree, size_t minsize, int quarantine_pct);
+void hu_malloc_init(bool overflow, bool useafterfree, bool scribble, size_t minsize, int quarantine_pct);
 void hu_malloc_cleanup();
 
 void* hu_malloc(size_t user_size);

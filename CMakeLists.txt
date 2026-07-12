@@ -63,6 +63,8 @@ add_executable(ex004 tests/ex004.cpp)
 add_executable(ex005 tests/ex005.cpp)
 add_executable(ex006 tests/ex006.cpp)
 add_executable(ex007 tests/ex007.cpp src/heapusage.h)
+add_executable(ex008 tests/ex008.c)
+add_executable(ex009 tests/ex009.c)
 
 set(TEST_COMPILE_OPTIONS -O0)
 target_compile_options(ex001 PRIVATE ${TEST_COMPILE_OPTIONS})
@@ -72,11 +74,16 @@ target_compile_options(ex004 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex005 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex006 PRIVATE ${TEST_COMPILE_OPTIONS})
 target_compile_options(ex007 PRIVATE ${TEST_COMPILE_OPTIONS})
+target_compile_options(ex008 PRIVATE ${TEST_COMPILE_OPTIONS})
+target_compile_options(ex009 PRIVATE ${TEST_COMPILE_OPTIONS})
 
-# Silence use-after-free warnings for tests that intentionally trigger such errors
+# Silence use-after-free and uninitialized-read warnings for tests that
+# intentionally trigger such accesses (e.g. to observe scribble patterns)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_compile_options(ex002 PRIVATE -Wno-use-after-free)
   target_compile_options(ex005 PRIVATE -Wno-use-after-free)
+  target_compile_options(ex008 PRIVATE -Wno-use-after-free -Wno-maybe-uninitialized)
+  target_compile_options(ex009 PRIVATE -Wno-maybe-uninitialized)
 endif()
 target_link_libraries(ex007 heapusage)
 
@@ -100,3 +107,9 @@ add_test(test006 "${PROJECT_BINARY_DIR}/test006")
 
 configure_file(tests/test007 ${CMAKE_CURRENT_BINARY_DIR}/test007 COPYONLY)
 add_test(test007 "${PROJECT_BINARY_DIR}/test007")
+
+configure_file(tests/test008 ${CMAKE_CURRENT_BINARY_DIR}/test008 COPYONLY)
+add_test(test008 "${PROJECT_BINARY_DIR}/test008")
+
+configure_file(tests/test009 ${CMAKE_CURRENT_BINARY_DIR}/test009 COPYONLY)
+add_test(test009 "${PROJECT_BINARY_DIR}/test009")
